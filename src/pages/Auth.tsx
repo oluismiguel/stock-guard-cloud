@@ -3,43 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Package, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import SplashScreen from "@/components/SplashScreen";
 
 const Auth = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName },
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
-
-      if (error) throw error;
-
-      toast.success("Conta criada com sucesso!");
-      navigate("/");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar conta");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [usuario, setUsuario] = useState("");
+  const [senha, setSenha] = useState("");
+  const [showSplash, setShowSplash] = useState(true);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,8 +20,8 @@ const Auth = () => {
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: usuario,
+        password: senha,
       });
 
       if (error) throw error;
@@ -62,112 +35,100 @@ const Auth = () => {
     }
   };
 
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-accent/5 to-background p-4">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="space-y-3 text-center">
-          <div className="mx-auto w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <Package className="h-6 w-6 text-white" />
-          </div>
-          <CardTitle className="text-2xl font-bold">Sistema de Estoque</CardTitle>
-          <CardDescription>
-            Gerencie seu estoque de forma inteligente e eficiente
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Entrar</TabsTrigger>
-              <TabsTrigger value="signup">Cadastrar</TabsTrigger>
-            </TabsList>
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#000080] to-[#0000CD] relative overflow-hidden">
+      {/* Wave Background */}
+      <div className="absolute bottom-0 left-0 right-0 h-1/2">
+        <svg
+          viewBox="0 0 1440 320"
+          className="absolute bottom-0 w-full"
+          preserveAspectRatio="none"
+        >
+          <path
+            fill="#0000FF"
+            fillOpacity="0.8"
+            d="M0,160L48,165.3C96,171,192,181,288,186.7C384,192,480,192,576,181.3C672,171,768,149,864,149.3C960,149,1056,171,1152,165.3C1248,160,1344,128,1392,112L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
+          ></path>
+        </svg>
+        <div className="absolute inset-0 bg-white rounded-t-[50%]"></div>
+      </div>
 
-            <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signin-password">Senha</Label>
-                  <Input
-                    id="signin-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Entrando...
-                    </>
-                  ) : (
-                    "Entrar"
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
+      {/* Content */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-start pt-16 px-6">
+        {/* Logo */}
+        <div className="text-center mb-16">
+          <h1 className="text-white font-black text-4xl md:text-5xl mb-2 tracking-wider">
+            D-DIK
+          </h1>
+          <h2 className="text-white font-black text-4xl md:text-5xl tracking-wider">
+            SPORTS
+          </h2>
+        </div>
 
-            <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Nome Completo</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Seu nome completo"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Senha</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Criando conta...
-                    </>
-                  ) : (
-                    "Criar Conta"
-                  )}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+        {/* Login Card */}
+        <div className="w-full max-w-sm bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8">
+          <p className="text-[#000080] font-bold text-center mb-8 text-sm uppercase tracking-wide">
+            Por favor digite o usuário e senha
+          </p>
+
+          <form onSubmit={handleSignIn} className="space-y-6">
+            <div className="space-y-2">
+              <label 
+                htmlFor="usuario" 
+                className="text-gray-500 text-sm font-medium block"
+              >
+                Usuario
+              </label>
+              <Input
+                id="usuario"
+                type="email"
+                placeholder=""
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value)}
+                required
+                className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label 
+                htmlFor="senha" 
+                className="text-gray-500 text-sm font-medium block"
+              >
+                Senha
+              </label>
+              <Input
+                id="senha"
+                type="password"
+                placeholder=""
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                required
+                className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
+              />
+            </div>
+
+            <Button 
+              type="submit" 
+              className="w-full bg-[#000080] hover:bg-[#000060] text-white font-semibold py-6 rounded-lg mt-8" 
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Entrando...
+                </>
+              ) : (
+                "Entrar"
+              )}
+            </Button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };
