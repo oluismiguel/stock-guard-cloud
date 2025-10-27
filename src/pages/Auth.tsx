@@ -19,17 +19,34 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      // Validação hardcoded
+      if (usuario !== "GERENTE" || senha !== "ADMINDIK") {
+        throw new Error("Usuário ou senha inválidos");
+      }
+
+      // Login com credenciais do Supabase (você pode criar um usuário no backend com essas credenciais)
       const { error } = await supabase.auth.signInWithPassword({
-        email: usuario,
-        password: senha,
+        email: "gerente@ddik.com",
+        password: "ADMINDIK123",
       });
 
-      if (error) throw error;
+      if (error) {
+        // Se o usuário não existe no Supabase, tenta criar
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: "gerente@ddik.com",
+          password: "ADMINDIK123",
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+          }
+        });
+        
+        if (signUpError) throw signUpError;
+      }
 
       toast.success("Login realizado com sucesso!");
       navigate("/");
     } catch (error: any) {
-      toast.error(error.message || "Erro ao fazer login");
+      toast.error(error.message || "Usuário ou senha inválidos");
     } finally {
       setLoading(false);
     }
@@ -85,10 +102,10 @@ const Auth = () => {
               </label>
               <Input
                 id="usuario"
-                type="email"
+                type="text"
                 placeholder=""
                 value={usuario}
-                onChange={(e) => setUsuario(e.target.value)}
+                onChange={(e) => setUsuario(e.target.value.toUpperCase())}
                 required
                 className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
               />

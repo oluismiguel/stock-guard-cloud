@@ -2,29 +2,29 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, TrendingDown, AlertTriangle, Activity } from "lucide-react";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
-import { NotificationBell } from "@/components/NotificationBell";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
+import { AlertTriangle, CheckCircle, Info } from "lucide-react";
+import MobileHeader from "@/components/MobileHeader";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface DashboardStats {
-  totalProducts: number;
-  lowStockProducts: number;
-  openIncidents: number;
-  totalMovements: number;
+  totalDeliveries: number;
+  delayed: number;
+  successRate: number;
+  weeklyData: number[];
 }
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
-    totalProducts: 0,
-    lowStockProducts: 0,
-    openIncidents: 0,
-    totalMovements: 0,
+    totalDeliveries: 0,
+    delayed: 0,
+    successRate: 0,
+    weeklyData: [50, 80, 120, 90, 140, 180, 200],
   });
+  const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,309 +36,150 @@ const Index = () => {
   useEffect(() => {
     if (!user) return;
 
-    const fetchStats = async () => {
+    const fetchData = async () => {
       try {
-        const [productsRes, incidentsRes, movementsRes] = await Promise.all([
-          supabase.from("products").select("id", { count: "exact" }),
-          supabase.from("incidents").select("id", { count: "exact" }).eq("status", "open"),
-          supabase.from("stock_movements").select("id", { count: "exact" }),
+        const [movementsRes, incidentsRes] = await Promise.all([
+          supabase.from("stock_movements").select("*").order("created_at", { ascending: false }),
+          supabase.from("incidents").select("*").order("created_at", { ascending: false }).limit(4),
         ]);
 
-        // Fetch low stock products separately with filter
-        const { data: allProducts } = await supabase
-          .from("products")
-          .select("current_stock, minimum_stock");
-        
-        const lowStockCount = allProducts?.filter(
-          (p) => p.current_stock <= p.minimum_stock
-        ).length || 0;
+        const movements = movementsRes.data || [];
+        const totalDeliveries = movements.filter(m => m.movement_type === "entry").length;
+        const delayed = incidentsRes.data?.filter(i => i.status === "open").length || 0;
+        const successRate = totalDeliveries > 0 ? Math.round(((totalDeliveries - delayed) / totalDeliveries) * 100) : 0;
 
         setStats({
-          totalProducts: productsRes.count || 0,
-          lowStockProducts: lowStockCount,
-          openIncidents: incidentsRes.count || 0,
-          totalMovements: movementsRes.count || 0,
+          totalDeliveries,
+          delayed,
+          successRate,
+          weeklyData: [50, 80, 120, 90, 140, 180, 200],
         });
+
+        setRecentAlerts(incidentsRes.data || []);
       } catch (error) {
-        console.error("Error fetching stats:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStats();
+    fetchData();
   }, [user]);
 
-  if (authLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
-          <p className="mt-4 text-muted-foreground">Carregando...</p>
-        </div>
-      </div>
-    );
-  }
+  if (authLoading || !user) return null;
 
-  if (!user) return null;
+  const maxValue = Math.max(...stats.weeklyData);
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full">
-        <AppSidebar />
-        <main className="flex-1 p-6 lg:p-8">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger />
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-muted-foreground">Visão geral do seu estoque</p>
+    <div className="min-h-screen bg-background">
+      <MobileHeader title="Dashboard" subtitle={format(new Date(), "d 'de' MMMM, yyyy", { locale: ptBR })} />
+      
+      <div className="p-4 space-y-6 -mt-4">
+        {/* Stats Cards */}
+        <Card className="bg-white rounded-3xl p-6 shadow-lg">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="text-3xl font-bold text-primary">{stats.totalDeliveries}</div>
+              <div className="text-xs text-muted-foreground mt-1">Entregas<br/>Hoje</div>
+            </div>
+            <div>
+              <div className="text-3xl font-bold text-destructive">{stats.delayed}</div>
+              <div className="text-xs text-muted-foreground mt-1">Em Atraso</div>
+            </div>
+            <div>
+              <div className="text-3xl font-bold text-success">{stats.successRate}%</div>
+              <div className="text-xs text-muted-foreground mt-1">Taxa de Sucesso</div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Deliveries by Status */}
+        <Card className="bg-white rounded-3xl p-6 shadow-lg">
+          <h3 className="font-bold text-gray-900 mb-4">Entregas por Status</h3>
+          <div className="flex items-center justify-between gap-6">
+            {/* Pie Chart Representation */}
+            <div className="relative w-32 h-32">
+              <svg viewBox="0 0 100 100" className="transform -rotate-90">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#ef4444" strokeWidth="20" strokeDasharray="75 100" />
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#fbbf24" strokeWidth="20" strokeDasharray="15 100" strokeDashoffset="-75" />
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#22c55e" strokeWidth="20" strokeDasharray="10 100" strokeDashoffset="-90" />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-sm font-bold text-gray-900">{stats.totalDeliveries}</div>
+                  <div className="text-xs text-muted-foreground">Total</div>
+                </div>
               </div>
             </div>
-            <NotificationBell />
+
+            {/* Legend & Line Chart */}
+            <div className="flex-1 space-y-4">
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-destructive"></div>
+                  <span>Entrega</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-warning"></div>
+                  <span>Em Atraso</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-success"></div>
+                  <span>Pendentes</span>
+                </div>
+              </div>
+
+              {/* Mini Bar Chart */}
+              <div>
+                <p className="text-xs font-semibold mb-2">Entregas Semanais</p>
+                <div className="flex items-end gap-1 h-16">
+                  {stats.weeklyData.map((value, idx) => (
+                    <div
+                      key={idx}
+                      className="flex-1 bg-primary rounded-t"
+                      style={{ height: `${(value / maxValue) * 100}%` }}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                  <span>Semana 1</span>
+                  <span>Semana 4</span>
+                </div>
+              </div>
+            </div>
           </div>
+        </Card>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="transition-all hover:shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Total de Produtos</CardTitle>
-                <Package className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <Skeleton className="h-8 w-20" />
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold">{stats.totalProducts}</div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Produtos cadastrados
+        {/* Recent Alerts */}
+        <Card className="bg-white rounded-3xl p-6 shadow-lg">
+          <h3 className="font-bold text-gray-900 mb-4">Alertas Recentes</h3>
+          <div className="space-y-3">
+            {recentAlerts.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum alerta recente</p>
+            ) : (
+              recentAlerts.map((alert, idx) => (
+                <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                  {alert.type === "return" ? (
+                    <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+                  ) : alert.status === "resolved" ? (
+                    <CheckCircle className="w-5 h-5 text-success mt-0.5" />
+                  ) : (
+                    <Info className="w-5 h-5 text-primary mt-0.5" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{alert.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(alert.created_at), "dd/MM", { locale: ptBR })}
                     </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="transition-all hover:shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Estoque Baixo</CardTitle>
-                <TrendingDown className="h-4 w-4 text-warning" />
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <Skeleton className="h-8 w-20" />
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold text-warning">{stats.lowStockProducts}</div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Produtos abaixo do mínimo
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="transition-all hover:shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Ocorrências Abertas</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <Skeleton className="h-8 w-20" />
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold text-destructive">{stats.openIncidents}</div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Requerem atenção
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="transition-all hover:shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Movimentações</CardTitle>
-                <Activity className="h-4 w-4 text-accent" />
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <Skeleton className="h-8 w-20" />
-                ) : (
-                  <>
-                    <div className="text-2xl font-bold">{stats.totalMovements}</div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Total de operações
-                    </p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-
-          <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Produtos com Estoque Baixo</CardTitle>
-                <CardDescription>
-                  Produtos que precisam de reposição urgente
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <LowStockProducts />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Últimas Movimentações</CardTitle>
-                <CardDescription>
-                  Histórico recente de entradas e saídas
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RecentMovements />
-              </CardContent>
-            </Card>
-          </div>
-        </main>
+        </Card>
       </div>
-    </SidebarProvider>
+    </div>
   );
 };
-
-function LowStockProducts() {
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchLowStock = async () => {
-      const { data } = await supabase
-        .from("products")
-        .select("name, sku, current_stock, minimum_stock")
-        .order("current_stock", { ascending: true });
-
-      const lowStock = data?.filter(
-        (p) => p.current_stock <= p.minimum_stock
-      ).slice(0, 5) || [];
-
-      setProducts(lowStock);
-      setLoading(false);
-    };
-
-    fetchLowStock();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full" />
-        ))}
-      </div>
-    );
-  }
-
-  if (products.length === 0) {
-    return (
-      <p className="text-center text-muted-foreground py-8">
-        Nenhum produto com estoque baixo
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {products.map((product) => (
-        <div
-          key={product.sku}
-          className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-        >
-          <div>
-            <p className="font-medium">{product.name}</p>
-            <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
-          </div>
-          <div className="text-right">
-            <p className="font-bold text-warning">{product.current_stock}</p>
-            <p className="text-xs text-muted-foreground">Mín: {product.minimum_stock}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function RecentMovements() {
-  const [movements, setMovements] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchMovements = async () => {
-      const { data } = await supabase
-        .from("stock_movements")
-        .select(`
-          *,
-          products (name, sku)
-        `)
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      setMovements(data || []);
-      setLoading(false);
-    };
-
-    fetchMovements();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full" />
-        ))}
-      </div>
-    );
-  }
-
-  if (movements.length === 0) {
-    return (
-      <p className="text-center text-muted-foreground py-8">
-        Nenhuma movimentação registrada
-      </p>
-    );
-  }
-
-  const typeLabels = {
-    entry: "Entrada",
-    exit: "Saída",
-    adjustment: "Ajuste",
-  };
-
-  return (
-    <div className="space-y-3">
-      {movements.map((movement) => (
-        <div
-          key={movement.id}
-          className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-        >
-          <div>
-            <p className="font-medium">{movement.products?.name}</p>
-            <p className="text-sm text-muted-foreground">
-              {typeLabels[movement.movement_type as keyof typeof typeLabels]}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className={`font-bold ${movement.movement_type === 'entry' ? 'text-success' : 'text-destructive'}`}>
-              {movement.movement_type === 'entry' ? '+' : '-'}{Math.abs(movement.quantity)}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {new Date(movement.created_at).toLocaleDateString("pt-BR")}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default Index;

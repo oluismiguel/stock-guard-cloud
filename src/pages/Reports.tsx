@@ -2,31 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
-import { NotificationBell } from "@/components/NotificationBell";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileDown, TrendingUp, TrendingDown, Package } from "lucide-react";
-import { toast } from "sonner";
-
-interface ReportData {
-  topProducts: Array<{ name: string; sku: string; movements: number }>;
-  stockTurnover: number;
-  totalEntries: number;
-  totalExits: number;
-  recentMovements: Array<{
-    product_name: string;
-    movement_type: string;
-    quantity: number;
-    created_at: string;
-  }>;
-}
+import MobileHeader from "@/components/MobileHeader";
 
 const Reports = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [selectedPeriod, setSelectedPeriod] = useState<"today" | "week" | "month">("week");
+  const [deliveryRate, setDeliveryRate] = useState(94.2);
+  const [weeklyData, setWeeklyData] = useState([50, 80, 120, 90, 140, 180, 200]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,249 +22,130 @@ const Reports = () => {
 
   useEffect(() => {
     if (!user) return;
+
+    const fetchReportData = async () => {
+      try {
+        const { data: movements } = await supabase
+          .from("stock_movements")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        const totalMovements = movements?.length || 0;
+        const successfulMovements = movements?.filter(m => m.movement_type === "entry").length || 0;
+        const rate = totalMovements > 0 ? (successfulMovements / totalMovements) * 100 : 0;
+        setDeliveryRate(Math.round(rate * 10) / 10);
+
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching report data:", error);
+        setLoading(false);
+      }
+    };
+
     fetchReportData();
   }, [user]);
 
-  const fetchReportData = async () => {
-    try {
-      // Fetch stock movements for analysis
-      const { data: movements } = await supabase
-        .from("stock_movements")
-        .select(`
-          *,
-          products (name, sku)
-        `)
-        .order("created_at", { ascending: false });
+  if (authLoading || !user) return null;
 
-      if (!movements) {
-        setLoading(false);
-        return;
-      }
-
-      // Calculate top products by movement count
-      const productMovements = movements.reduce((acc: any, mov: any) => {
-        const key = mov.product_id;
-        if (!acc[key]) {
-          acc[key] = {
-            name: mov.products?.name || "N/A",
-            sku: mov.products?.sku || "N/A",
-            movements: 0,
-          };
-        }
-        acc[key].movements++;
-        return acc;
-      }, {});
-
-      const topProducts = Object.values(productMovements)
-        .sort((a: any, b: any) => b.movements - a.movements)
-        .slice(0, 10);
-
-      // Calculate entries and exits
-      const totalEntries = movements.filter((m) => m.movement_type === "entry").length;
-      const totalExits = movements.filter((m) => m.movement_type === "exit").length;
-
-      // Format recent movements
-      const recentMovements = movements.slice(0, 20).map((m: any) => ({
-        product_name: m.products?.name || "N/A",
-        movement_type: m.movement_type,
-        quantity: m.quantity,
-        created_at: m.created_at,
-      }));
-
-      setReportData({
-        topProducts: topProducts as any,
-        stockTurnover: totalExits > 0 ? (totalExits / (totalEntries || 1)) * 100 : 0,
-        totalEntries,
-        totalExits,
-        recentMovements,
-      });
-    } catch (error: any) {
-      toast.error("Erro ao gerar relatório");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const exportToCSV = () => {
-    if (!reportData) return;
-
-    const csv = [
-      ["Produto", "SKU", "Movimentações"],
-      ...reportData.topProducts.map((p) => [p.name, p.sku, p.movements]),
-    ]
-      .map((row) => row.join(","))
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `relatorio-estoque-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    toast.success("Relatório exportado com sucesso");
-  };
-
-  if (authLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  if (!user) return null;
+  const maxValue = Math.max(...weeklyData);
+  const periodChange = selectedPeriod === "week" ? 2.1 : selectedPeriod === "month" ? 5.3 : 0.5;
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full">
-        <AppSidebar />
-        <main className="flex-1 p-6 lg:p-8">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger />
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">Relatórios</h1>
-                <p className="text-muted-foreground">
-                  Análise de desempenho e movimentações
-                </p>
-              </div>
+    <div className="min-h-screen bg-background">
+      <MobileHeader title="Relatórios" />
+      
+      <div className="p-4 space-y-6 -mt-4">
+        <Card className="bg-white rounded-3xl p-4 shadow-lg">
+          <div className="flex gap-2">
+            <Button
+              variant={selectedPeriod === "today" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedPeriod("today")}
+              className="flex-1 rounded-full"
+            >
+              Hoje
+            </Button>
+            <Button
+              variant={selectedPeriod === "week" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedPeriod("week")}
+              className="flex-1 rounded-full"
+            >
+              Semana
+            </Button>
+            <Button
+              variant={selectedPeriod === "month" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedPeriod("month")}
+              className="flex-1 rounded-full"
+            >
+              mês
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="bg-white rounded-3xl p-6 shadow-lg">
+          <h3 className="font-bold text-gray-900 mb-4">Desempenho Semanal</h3>
+          
+          <div className="mb-8">
+            <div className="flex items-end justify-between gap-2 h-48 mb-2">
+              {weeklyData.map((value, idx) => (
+                <div key={idx} className="flex-1 flex flex-col items-center">
+                  <div className="w-full relative">
+                    <div
+                      className="w-full bg-primary rounded-t-lg transition-all"
+                      style={{ height: `${(value / maxValue) * 180}px` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="flex items-center gap-2">
-              <NotificationBell />
-              <Button onClick={exportToCSV} disabled={!reportData}>
-                <FileDown className="mr-2 h-4 w-4" />
-                Exportar CSV
-              </Button>
+            <div className="flex justify-between text-xs text-muted-foreground px-1">
+              <span>S1</span>
+              <span>S2</span>
+              <span>S3</span>
+              <span>S4</span>
+              <span>S5</span>
+              <span>S6</span>
+              <span>S7</span>
             </div>
           </div>
 
-          {loading ? (
-            <div className="text-center py-12">Gerando relatório...</div>
-          ) : !reportData ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                Nenhum dado disponível para relatório
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-3">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Giro de Estoque</CardTitle>
-                    <Package className="h-4 w-4 text-primary" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {reportData.stockTurnover.toFixed(1)}%
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Taxa de movimentação
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Total de Entradas</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-success" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-success">
-                      {reportData.totalEntries}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">Movimentações</p>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Total de Saídas</CardTitle>
-                    <TrendingDown className="h-4 w-4 text-destructive" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-destructive">
-                      {reportData.totalExits}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">Movimentações</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Produtos Mais Movimentados</CardTitle>
-                  <CardDescription>
-                    Top 10 produtos com mais entradas e saídas
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {reportData.topProducts.map((product, index) => (
-                      <div
-                        key={product.sku}
-                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              SKU: {product.sku}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold">{product.movements}</p>
-                          <p className="text-xs text-muted-foreground">movimentações</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Histórico Recente de Movimentações</CardTitle>
-                  <CardDescription>Últimas 20 movimentações registradas</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {reportData.recentMovements.map((movement, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                      >
-                        <div>
-                          <p className="font-medium">{movement.product_name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {movement.movement_type === "entry" ? "Entrada" : "Saída"} •{" "}
-                            {new Date(movement.created_at).toLocaleDateString("pt-BR")}
-                          </p>
-                        </div>
-                        <p
-                          className={`font-bold ${
-                            movement.movement_type === "entry"
-                              ? "text-success"
-                              : "text-destructive"
-                          }`}
-                        >
-                          {movement.movement_type === "entry" ? "+" : "-"}
-                          {movement.quantity}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="text-center pt-6 border-t">
+            <p className="text-sm text-muted-foreground mb-2">Taxa de Entrega</p>
+            <div className="text-5xl font-bold text-primary mb-2">{deliveryRate}%</div>
+            <div className="flex items-center justify-center gap-1 text-sm text-success">
+              <span>↑</span>
+              <span>{periodChange}% vs. Semana anterior</span>
             </div>
-          )}
-        </main>
+          </div>
+        </Card>
+
+        <div className="grid grid-cols-3 gap-3">
+          <Button
+            variant="outline"
+            className="h-20 flex-col gap-2 rounded-2xl border-2"
+          >
+            <span className="text-2xl">📊</span>
+            <span className="text-xs">Vendas</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-20 flex-col gap-2 rounded-2xl border-2"
+          >
+            <span className="text-2xl">📦</span>
+            <span className="text-xs">Storage</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-20 flex-col gap-2 rounded-2xl border-2"
+          >
+            <span className="text-2xl">🚚</span>
+            <span className="text-xs">Entrega</span>
+          </Button>
+        </div>
       </div>
-    </SidebarProvider>
+    </div>
   );
 };
 
