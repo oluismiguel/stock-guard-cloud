@@ -120,6 +120,10 @@ export type Database = {
           maximum_stock: number | null
           minimum_stock: number
           name: string
+          product_type: string | null
+          purchase_price: number | null
+          sale_price: number | null
+          size: string | null
           sku: string
           unit_price: number | null
           updated_at: string | null
@@ -137,6 +141,10 @@ export type Database = {
           maximum_stock?: number | null
           minimum_stock?: number
           name: string
+          product_type?: string | null
+          purchase_price?: number | null
+          sale_price?: number | null
+          size?: string | null
           sku: string
           unit_price?: number | null
           updated_at?: string | null
@@ -154,6 +162,10 @@ export type Database = {
           maximum_stock?: number | null
           minimum_stock?: number
           name?: string
+          product_type?: string | null
+          purchase_price?: number | null
+          sale_price?: number | null
+          size?: string | null
           sku?: string
           unit_price?: number | null
           updated_at?: string | null
@@ -164,31 +176,84 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string | null
+          display_name: string | null
           email: string | null
           full_name: string | null
           id: string
+          profile_picture_url: string | null
           role: string | null
           updated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
+          display_name?: string | null
           email?: string | null
           full_name?: string | null
           id: string
+          profile_picture_url?: string | null
           role?: string | null
           updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string | null
+          display_name?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
+          profile_picture_url?: string | null
           role?: string | null
           updated_at?: string | null
         }
         Relationships: []
+      }
+      sales: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          discount: number | null
+          id: string
+          product_id: string | null
+          profit: number
+          purchase_price: number
+          quantity: number
+          sale_date: string
+          sale_price: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          discount?: number | null
+          id?: string
+          product_id?: string | null
+          profit: number
+          purchase_price: number
+          quantity: number
+          sale_date?: string
+          sale_price: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          discount?: number | null
+          id?: string
+          product_id?: string | null
+          profit?: number
+          purchase_price?: number
+          quantity?: number
+          sale_date?: string
+          sale_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stock_movements: {
         Row: {

@@ -5,14 +5,45 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import MobileHeader from "@/components/MobileHeader";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+interface Sale {
+  profit: number;
+  sale_date: string;
+  product_id: string;
+  quantity: number;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  product_type: string;
+  current_stock: number;
+}
+
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"];
 
 const Reports = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [selectedPeriod, setSelectedPeriod] = useState<"today" | "week" | "month">("week");
-  const [deliveryRate, setDeliveryRate] = useState(94.2);
-  const [weeklyData, setWeeklyData] = useState([50, 80, 120, 90, 140, 180, 200]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [periodType, setPeriodType] = useState<"daily" | "monthly" | "yearly">("monthly");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [filterProduct, setFilterProduct] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -22,128 +53,274 @@ const Reports = () => {
 
   useEffect(() => {
     if (!user) return;
+    fetchData();
+  }, [user, periodType, selectedDate]);
 
-    const fetchReportData = async () => {
-      try {
-        const { data: movements } = await supabase
-          .from("stock_movements")
-          .select("*")
-          .order("created_at", { ascending: false });
+  const fetchData = async () => {
+    try {
+      let startDate: Date;
+      let endDate: Date;
 
-        const totalMovements = movements?.length || 0;
-        const successfulMovements = movements?.filter(m => m.movement_type === "entry").length || 0;
-        const rate = totalMovements > 0 ? (successfulMovements / totalMovements) * 100 : 0;
-        setDeliveryRate(Math.round(rate * 10) / 10);
-
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching report data:", error);
-        setLoading(false);
+      switch (periodType) {
+        case "daily":
+          startDate = startOfDay(selectedDate);
+          endDate = endOfDay(selectedDate);
+          break;
+        case "monthly":
+          startDate = startOfMonth(selectedDate);
+          endDate = endOfMonth(selectedDate);
+          break;
+        case "yearly":
+          startDate = startOfYear(selectedDate);
+          endDate = endOfYear(selectedDate);
+          break;
       }
-    };
 
-    fetchReportData();
-  }, [user]);
+      const { data: salesData } = await supabase
+        .from("sales")
+        .select("*")
+        .gte("sale_date", startDate.toISOString())
+        .lte("sale_date", endDate.toISOString());
+
+      const { data: productsData } = await supabase
+        .from("products")
+        .select("id, name, product_type, current_stock");
+
+      setSales(salesData || []);
+      setProducts(productsData || []);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching report data:", error);
+      setLoading(false);
+    }
+  };
+
+  const getFilteredSales = () => {
+    let filtered = sales;
+    
+    if (filterProduct !== "all") {
+      filtered = filtered.filter(s => s.product_id === filterProduct);
+    }
+    
+    if (filterType !== "all") {
+      const productsOfType = products.filter(p => p.product_type === filterType).map(p => p.id);
+      filtered = filtered.filter(s => productsOfType.includes(s.product_id));
+    }
+    
+    return filtered;
+  };
+
+  const getFilteredProducts = () => {
+    let filtered = products;
+    
+    if (filterProduct !== "all") {
+      filtered = filtered.filter(p => p.id === filterProduct);
+    }
+    
+    if (filterType !== "all") {
+      filtered = filtered.filter(p => p.product_type === filterType);
+    }
+    
+    return filtered;
+  };
+
+  const getSalesChartData = () => {
+    const filteredSales = getFilteredSales();
+    const salesByProduct = filteredSales.reduce((acc, sale) => {
+      const product = products.find(p => p.id === sale.product_id);
+      const productName = product?.name || "Desconhecido";
+      
+      if (!acc[productName]) {
+        acc[productName] = 0;
+      }
+      acc[productName] += sale.quantity;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(salesByProduct).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  };
+
+  const getStockPercentageData = () => {
+    const filteredProducts = getFilteredProducts();
+    const totalStock = filteredProducts.reduce((sum, p) => sum + p.current_stock, 0);
+    
+    return filteredProducts.map(product => ({
+      name: product.name,
+      value: totalStock > 0 ? (product.current_stock / totalStock) * 100 : 0,
+    }));
+  };
+
+  const getProfitChartData = () => {
+    const filteredSales = getFilteredSales();
+    const profitByProduct = filteredSales.reduce((acc, sale) => {
+      const product = products.find(p => p.id === sale.product_id);
+      const productName = product?.name || "Desconhecido";
+      
+      if (!acc[productName]) {
+        acc[productName] = 0;
+      }
+      acc[productName] += sale.profit;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(profitByProduct).map(([name, value]) => ({
+      name,
+      value: Math.round(value * 100) / 100,
+    }));
+  };
+
+  const getTotalProfit = () => {
+    const filteredSales = getFilteredSales();
+    return filteredSales.reduce((sum, sale) => sum + sale.profit, 0);
+  };
+
+  const uniqueTypes = [...new Set(products.map(p => p.product_type).filter(Boolean))];
 
   if (authLoading || !user) return null;
 
-  const maxValue = Math.max(...weeklyData);
-  const periodChange = selectedPeriod === "week" ? 2.1 : selectedPeriod === "month" ? 5.3 : 0.5;
+  const salesData = getSalesChartData();
+  const stockData = getStockPercentageData();
+  const profitData = getProfitChartData();
 
   return (
     <div className="min-h-screen bg-background">
       <MobileHeader title="Relatórios" />
-      
+
       <div className="p-4 space-y-6 -mt-4">
         <Card className="bg-white rounded-3xl p-4 shadow-lg">
-          <div className="flex gap-2">
-            <Button
-              variant={selectedPeriod === "today" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedPeriod("today")}
-              className="flex-1 rounded-full"
-            >
-              Hoje
-            </Button>
-            <Button
-              variant={selectedPeriod === "week" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedPeriod("week")}
-              className="flex-1 rounded-full"
-            >
-              Semana
-            </Button>
-            <Button
-              variant={selectedPeriod === "month" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedPeriod("month")}
-              className="flex-1 rounded-full"
-            >
-              mês
-            </Button>
+          <h3 className="font-bold text-gray-900 mb-4">Filtros</h3>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>Período</Label>
+              <Select value={periodType} onValueChange={(v: any) => setPeriodType(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Diário</SelectItem>
+                  <SelectItem value="monthly">Mensal</SelectItem>
+                  <SelectItem value="yearly">Anual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Filtrar por Produto</Label>
+              <Select value={filterProduct} onValueChange={setFilterProduct}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Produtos</SelectItem>
+                  {products.map(product => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Filtrar por Tipo</Label>
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Tipos</SelectItem>
+                  {uniqueTypes.map(type => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </Card>
 
         <Card className="bg-white rounded-3xl p-6 shadow-lg">
-          <h3 className="font-bold text-gray-900 mb-4">Desempenho Semanal</h3>
-          
-          <div className="mb-8">
-            <div className="flex items-end justify-between gap-2 h-48 mb-2">
-              {weeklyData.map((value, idx) => (
-                <div key={idx} className="flex-1 flex flex-col items-center">
-                  <div className="w-full relative">
-                    <div
-                      className="w-full bg-primary rounded-t-lg transition-all"
-                      style={{ height: `${(value / maxValue) * 180}px` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground px-1">
-              <span>S1</span>
-              <span>S2</span>
-              <span>S3</span>
-              <span>S4</span>
-              <span>S5</span>
-              <span>S6</span>
-              <span>S7</span>
-            </div>
-          </div>
-
-          <div className="text-center pt-6 border-t">
-            <p className="text-sm text-muted-foreground mb-2">Taxa de Entrega</p>
-            <div className="text-5xl font-bold text-primary mb-2">{deliveryRate}%</div>
-            <div className="flex items-center justify-center gap-1 text-sm text-success">
-              <span>↑</span>
-              <span>{periodChange}% vs. Semana anterior</span>
-            </div>
-          </div>
+          <h3 className="font-bold text-gray-900 mb-4">Vendas por Produto</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={salesData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={(entry) => entry.name}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {salesData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
         </Card>
 
-        <div className="grid grid-cols-3 gap-3">
-          <Button
-            variant="outline"
-            className="h-20 flex-col gap-2 rounded-2xl border-2"
-          >
-            <span className="text-2xl">📊</span>
-            <span className="text-xs">Vendas</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-20 flex-col gap-2 rounded-2xl border-2"
-          >
-            <span className="text-2xl">📦</span>
-            <span className="text-xs">Storage</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-20 flex-col gap-2 rounded-2xl border-2"
-          >
-            <span className="text-2xl">🚚</span>
-            <span className="text-xs">Entrega</span>
-          </Button>
-        </div>
+        <Card className="bg-white rounded-3xl p-6 shadow-lg">
+          <h3 className="font-bold text-gray-900 mb-4">% de Estoque por Produto</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={stockData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={(entry) => `${entry.name}: ${entry.value.toFixed(1)}%`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {stockData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card className="bg-white rounded-3xl p-6 shadow-lg">
+          <h3 className="font-bold text-gray-900 mb-4">Lucro por Produto</h3>
+          <div className="text-center mb-4">
+            <p className="text-sm text-muted-foreground">Lucro Total</p>
+            <div className="text-4xl font-bold text-green-600">
+              R$ {getTotalProfit().toFixed(2)}
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={profitData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={(entry) => `${entry.name}: R$ ${entry.value}`}
+                outerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {profitData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value: number) => `R$ ${value.toFixed(2)}`} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
       </div>
     </div>
   );
