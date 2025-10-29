@@ -24,6 +24,7 @@ const UserProfile = ({ open, onOpenChange }: UserProfileProps) => {
   const [displayName, setDisplayName] = useState("");
   const [profilePicture, setProfilePicture] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (user && open) {
@@ -64,11 +65,23 @@ const UserProfile = ({ open, onOpenChange }: UserProfileProps) => {
       if (error) throw error;
 
       toast.success("Perfil atualizado com sucesso!");
-      onOpenChange(false);
+      setIsEditing(false);
+      fetchProfile();
     } catch (error: any) {
       toast.error(error.message || "Erro ao atualizar perfil");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePicture(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -84,48 +97,83 @@ const UserProfile = ({ open, onOpenChange }: UserProfileProps) => {
           <DialogTitle>Perfil do Usuário</DialogTitle>
         </DialogHeader>
         <div className="space-y-6 py-4">
-          <div className="flex justify-center">
-            <Avatar className="w-24 h-24">
-              <AvatarImage src={profilePicture || undefined} />
-              <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                <User className="w-12 h-12" />
-              </AvatarFallback>
-            </Avatar>
-          </div>
+          {!isEditing ? (
+            <>
+              <div className="flex flex-col items-center gap-4">
+                <Avatar className="w-32 h-32">
+                  <AvatarImage src={profilePicture || undefined} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-3xl">
+                    <User className="w-16 h-16" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="text-center">
+                  <h3 className="text-xl font-bold text-gray-900">
+                    {displayName || "Sem nome"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="displayName">Nome de Exibição</Label>
-            <Input
-              id="displayName"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Digite seu nome"
-            />
-          </div>
+              <div className="flex flex-col gap-2">
+                <Button onClick={() => setIsEditing(true)} variant="outline">
+                  Editar Perfil
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleSignOut}
+                  className="w-full"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sair da Conta
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <Avatar className="w-32 h-32">
+                    <AvatarImage src={profilePicture || undefined} />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-3xl">
+                      <User className="w-16 h-16" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <label
+                    htmlFor="photo-upload"
+                    className="absolute bottom-0 right-0 bg-primary text-white rounded-full p-2 cursor-pointer hover:bg-primary/90"
+                  >
+                    <User className="w-4 h-4" />
+                    <input
+                      id="photo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileSelect}
+                    />
+                  </label>
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="profilePicture">URL da Foto de Perfil</Label>
-            <Input
-              id="profilePicture"
-              value={profilePicture}
-              onChange={(e) => setProfilePicture(e.target.value)}
-              placeholder="https://exemplo.com/foto.jpg"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="displayName">Nome de Exibição</Label>
+                <Input
+                  id="displayName"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Digite seu nome"
+                />
+              </div>
 
-          <div className="flex flex-col gap-2">
-            <Button onClick={handleSave} disabled={loading}>
-              Salvar Alterações
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleSignOut}
-              className="w-full"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Sair da Conta
-            </Button>
-          </div>
+              <div className="flex flex-col gap-2">
+                <Button onClick={handleSave} disabled={loading}>
+                  Salvar Alterações
+                </Button>
+                <Button onClick={() => setIsEditing(false)} variant="outline">
+                  Cancelar
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

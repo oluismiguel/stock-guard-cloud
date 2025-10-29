@@ -1,8 +1,11 @@
 import { ArrowLeft, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NotificationBell } from "./NotificationBell";
 import UserProfile from "./UserProfile";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface MobileHeaderProps {
   title: string;
@@ -11,7 +14,31 @@ interface MobileHeaderProps {
 
 const MobileHeader = ({ title, subtitle }: MobileHeaderProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profilePicture, setProfilePicture] = useState("");
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("profile_picture_url")
+        .eq("id", user?.id)
+        .single();
+
+      if (data?.profile_picture_url) {
+        setProfilePicture(data.profile_picture_url);
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
+  };
 
   return (
     <>
@@ -29,9 +56,14 @@ const MobileHeader = ({ title, subtitle }: MobileHeaderProps) => {
             <NotificationBell />
             <button
               onClick={() => setProfileOpen(true)}
-              className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              className="hover:opacity-80 transition-opacity"
             >
-              <User className="w-6 h-6 text-white" />
+              <Avatar className="w-8 h-8">
+                <AvatarImage src={profilePicture || undefined} />
+                <AvatarFallback className="bg-white/20">
+                  <User className="w-4 h-4" />
+                </AvatarFallback>
+              </Avatar>
             </button>
           </div>
         </div>

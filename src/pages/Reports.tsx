@@ -31,7 +31,7 @@ interface Product {
   current_stock: number;
 }
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"];
+const COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444"];
 
 const Reports = () => {
   const { user, loading: authLoading } = useAuth();
@@ -147,9 +147,15 @@ const Reports = () => {
     const filteredProducts = getFilteredProducts();
     const totalStock = filteredProducts.reduce((sum, p) => sum + p.current_stock, 0);
     
-    return filteredProducts.map(product => ({
+    const data = filteredProducts.map(product => ({
       name: product.name,
       value: totalStock > 0 ? (product.current_stock / totalStock) * 100 : 0,
+    }));
+
+    // Ensure values are between 0 and 100
+    return data.map(item => ({
+      ...item,
+      value: Math.min(100, Math.max(0, item.value))
     }));
   };
 
@@ -245,8 +251,8 @@ const Reports = () => {
         </Card>
 
         <Card className="bg-white rounded-3xl p-6 shadow-lg">
-          <h3 className="font-bold text-gray-900 mb-4">Vendas por Produto</h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <h3 className="font-bold text-gray-900 mb-4 text-lg">Vendas por Produto</h3>
+          <ResponsiveContainer width="100%" height={380}>
             <PieChart>
               <Pie
                 data={salesData}
@@ -254,7 +260,7 @@ const Reports = () => {
                 cy="50%"
                 labelLine={false}
                 label={(entry) => entry.name}
-                outerRadius={80}
+                outerRadius={120}
                 fill="#8884d8"
                 dataKey="value"
               >
@@ -269,8 +275,8 @@ const Reports = () => {
         </Card>
 
         <Card className="bg-white rounded-3xl p-6 shadow-lg">
-          <h3 className="font-bold text-gray-900 mb-4">% de Estoque por Produto</h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <h3 className="font-bold text-gray-900 mb-4 text-lg">% de Estoque por Produto</h3>
+          <ResponsiveContainer width="100%" height={380}>
             <PieChart>
               <Pie
                 data={stockData}
@@ -278,7 +284,7 @@ const Reports = () => {
                 cy="50%"
                 labelLine={false}
                 label={(entry) => `${entry.name}: ${entry.value.toFixed(1)}%`}
-                outerRadius={80}
+                outerRadius={120}
                 fill="#8884d8"
                 dataKey="value"
               >
@@ -293,14 +299,14 @@ const Reports = () => {
         </Card>
 
         <Card className="bg-white rounded-3xl p-6 shadow-lg">
-          <h3 className="font-bold text-gray-900 mb-4">Lucro por Produto</h3>
+          <h3 className="font-bold text-gray-900 mb-4 text-lg">Lucro por Produto</h3>
           <div className="text-center mb-4">
             <p className="text-sm text-muted-foreground">Lucro Total</p>
             <div className="text-4xl font-bold text-green-600">
               R$ {getTotalProfit().toFixed(2)}
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={380}>
             <PieChart>
               <Pie
                 data={profitData}
@@ -308,7 +314,7 @@ const Reports = () => {
                 cy="50%"
                 labelLine={false}
                 label={(entry) => `${entry.name}: R$ ${entry.value}`}
-                outerRadius={80}
+                outerRadius={120}
                 fill="#8884d8"
                 dataKey="value"
               >

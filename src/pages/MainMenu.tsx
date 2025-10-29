@@ -15,10 +15,10 @@ const MainMenu = () => {
       gradient: "from-[#4169E1] to-[#1E90FF]"
     },
     {
-      title: "Entregas",
+      title: "Encomendas",
       subtitle: "Gerenciar pedidos",
       icon: Package,
-      path: "/products",
+      path: "/inventory",
       gradient: "from-[#4169E1] to-[#0066CC]"
     },
     {
@@ -28,13 +28,6 @@ const MainMenu = () => {
       path: "/reports",
       gradient: "from-[#0066CC] to-[#003399]"
     },
-    {
-      title: "Estoque",
-      subtitle: "controle de produtos",
-      icon: Warehouse,
-      path: "/inventory",
-      gradient: "from-[#003399] to-[#000080]"
-    }
   ];
 
   return (

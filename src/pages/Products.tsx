@@ -127,13 +127,42 @@ const Products = () => {
   };
 
   const handleDeleteClick = (product: Product) => {
+    if (product.current_stock <= 0) {
+      setSelectedProduct(product);
+      // Open dialog asking if user wants to permanently remove
+      setDeleteDialogOpen(true);
+      return;
+    }
     setSelectedProduct(product);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = () => {
     setDeleteDialogOpen(false);
-    setSaleDialogOpen(true);
+    if (selectedProduct && selectedProduct.current_stock <= 0) {
+      // Permanently delete product
+      handlePermanentDelete();
+    } else {
+      setSaleDialogOpen(true);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!selectedProduct) return;
+    
+    try {
+      await supabase
+        .from("products")
+        .delete()
+        .eq("id", selectedProduct.id);
+
+      toast.success("Produto removido permanentemente!");
+      fetchProducts();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao remover produto");
+    } finally {
+      setSelectedProduct(null);
+    }
   };
 
   const handleSaleResponse = (sold: boolean) => {
@@ -398,14 +427,22 @@ const Products = () => {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Remoção</AlertDialogTitle>
+            <AlertDialogTitle>
+              {selectedProduct?.current_stock && selectedProduct.current_stock <= 0 
+                ? "Remover Produto Permanentemente?" 
+                : "Confirmar Remoção"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover uma unidade de "{selectedProduct?.name}"?
+              {selectedProduct?.current_stock && selectedProduct.current_stock <= 0
+                ? `O produto "${selectedProduct?.name}" está sem estoque. Deseja removê-lo permanentemente do sistema?`
+                : `Tem certeza que deseja remover uma unidade de "${selectedProduct?.name}"?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm}>Confirmar</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteConfirm}>
+              {selectedProduct?.current_stock && selectedProduct.current_stock <= 0 ? "Remover Permanentemente" : "Confirmar"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -3,29 +3,24 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { AlertTriangle, CheckCircle, Info } from "lucide-react";
 import MobileHeader from "@/components/MobileHeader";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { Package, AlertTriangle, TrendingUp, DollarSign, ShoppingCart, PackageCheck } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
-interface DashboardStats {
-  totalDeliveries: number;
-  delayed: number;
-  successRate: number;
-  weeklyData: number[];
-}
+const COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444"];
 
 const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalDeliveries: 0,
-    delayed: 0,
-    successRate: 0,
-    weeklyData: [50, 80, 120, 90, 140, 180, 200],
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    lowStock: 0,
+    totalValue: 0,
+    recentSales: 0,
+    totalOrders: 0,
+    pendingOrders: 0,
   });
-  const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [topProducts, setTopProducts] = useState<any[]>([]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -35,148 +30,155 @@ const Index = () => {
 
   useEffect(() => {
     if (!user) return;
-
-    const fetchData = async () => {
-      try {
-        const [movementsRes, incidentsRes] = await Promise.all([
-          supabase.from("stock_movements").select("*").order("created_at", { ascending: false }),
-          supabase.from("incidents").select("*").order("created_at", { ascending: false }).limit(4),
-        ]);
-
-        const movements = movementsRes.data || [];
-        const totalDeliveries = movements.filter(m => m.movement_type === "entry").length;
-        const delayed = incidentsRes.data?.filter(i => i.status === "open").length || 0;
-        const successRate = totalDeliveries > 0 ? Math.round(((totalDeliveries - delayed) / totalDeliveries) * 100) : 0;
-
-        setStats({
-          totalDeliveries,
-          delayed,
-          successRate,
-          weeklyData: [50, 80, 120, 90, 140, 180, 200],
-        });
-
-        setRecentAlerts(incidentsRes.data || []);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    fetchStats();
   }, [user]);
+
+  const fetchStats = async () => {
+    try {
+      const { data: products } = await supabase
+        .from("products")
+        .select("*");
+
+      const { data: sales } = await supabase
+        .from("sales")
+        .select("*, products(name)")
+        .gte("sale_date", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+      const totalProducts = products?.length || 0;
+      const lowStock = products?.filter(p => p.current_stock <= p.minimum_stock).length || 0;
+      const totalValue = products?.reduce((sum, p) => sum + (p.current_stock * (p.sale_price || 0)), 0) || 0;
+      const recentSales = sales?.reduce((sum, s) => sum + s.profit, 0) || 0;
+
+      // Calculate top selling products
+      const productSales = sales?.reduce((acc: any, sale: any) => {
+        const productName = sale.products?.name || "Desconhecido";
+        if (!acc[productName]) {
+          acc[productName] = 0;
+        }
+        acc[productName] += sale.quantity;
+        return acc;
+      }, {});
+
+      const topProductsData = Object.entries(productSales || {})
+        .map(([name, quantity]) => ({ name, value: quantity as number }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
+
+      setTopProducts(topProductsData);
+      setStats({ totalProducts, lowStock, totalValue, recentSales, totalOrders: 0, pendingOrders: 0 });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    }
+  };
 
   if (authLoading || !user) return null;
 
-  const maxValue = Math.max(...stats.weeklyData);
-
   return (
-    <div className="min-h-screen bg-background">
-      <MobileHeader title="Dashboard" subtitle={format(new Date(), "d 'de' MMMM, yyyy", { locale: ptBR })} />
-      
+    <div className="min-h-screen bg-background pb-20">
+      <MobileHeader title="Dashboard" />
+
       <div className="p-4 space-y-6 -mt-4">
-        {/* Stats Cards */}
-        <Card className="bg-white rounded-3xl p-6 shadow-lg">
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="text-3xl font-bold text-primary">{stats.totalDeliveries}</div>
-              <div className="text-xs text-muted-foreground mt-1">Entregas<br/>Hoje</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-destructive">{stats.delayed}</div>
-              <div className="text-xs text-muted-foreground mt-1">Em Atraso</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-success">{stats.successRate}%</div>
-              <div className="text-xs text-muted-foreground mt-1">Taxa de Sucesso</div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Deliveries by Status */}
-        <Card className="bg-white rounded-3xl p-6 shadow-lg">
-          <h3 className="font-bold text-gray-900 mb-4">Entregas por Status</h3>
-          <div className="flex items-center justify-between gap-6">
-            {/* Pie Chart Representation */}
-            <div className="relative w-32 h-32">
-              <svg viewBox="0 0 100 100" className="transform -rotate-90">
-                <circle cx="50" cy="50" r="40" fill="none" stroke="#ef4444" strokeWidth="20" strokeDasharray="75 100" />
-                <circle cx="50" cy="50" r="40" fill="none" stroke="#fbbf24" strokeWidth="20" strokeDasharray="15 100" strokeDashoffset="-75" />
-                <circle cx="50" cy="50" r="40" fill="none" stroke="#22c55e" strokeWidth="20" strokeDasharray="10 100" strokeDashoffset="-90" />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-sm font-bold text-gray-900">{stats.totalDeliveries}</div>
-                  <div className="text-xs text-muted-foreground">Total</div>
-                </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl p-5 shadow-lg">
+            <div className="flex flex-col gap-2">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <Package className="w-5 h-5 text-white" />
               </div>
-            </div>
-
-            {/* Legend & Line Chart */}
-            <div className="flex-1 space-y-4">
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-destructive"></div>
-                  <span>Entrega</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-warning"></div>
-                  <span>Em Atraso</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-success"></div>
-                  <span>Pendentes</span>
-                </div>
-              </div>
-
-              {/* Mini Bar Chart */}
               <div>
-                <p className="text-xs font-semibold mb-2">Entregas Semanais</p>
-                <div className="flex items-end gap-1 h-16">
-                  {stats.weeklyData.map((value, idx) => (
-                    <div
-                      key={idx}
-                      className="flex-1 bg-primary rounded-t"
-                      style={{ height: `${(value / maxValue) * 100}%` }}
-                    />
-                  ))}
-                </div>
-                <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-                  <span>Semana 1</span>
-                  <span>Semana 4</span>
-                </div>
+                <p className="text-sm text-white/80">Total de Produtos</p>
+                <p className="text-3xl font-bold text-white">{stats.totalProducts}</p>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Recent Alerts */}
-        <Card className="bg-white rounded-3xl p-6 shadow-lg">
-          <h3 className="font-bold text-gray-900 mb-4">Alertas Recentes</h3>
-          <div className="space-y-3">
-            {recentAlerts.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhum alerta recente</p>
-            ) : (
-              recentAlerts.map((alert, idx) => (
-                <div key={idx} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
-                  {alert.type === "return" ? (
-                    <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
-                  ) : alert.status === "resolved" ? (
-                    <CheckCircle className="w-5 h-5 text-success mt-0.5" />
-                  ) : (
-                    <Info className="w-5 h-5 text-primary mt-0.5" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{alert.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(alert.created_at), "dd/MM", { locale: ptBR })}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
+          <Card className="bg-gradient-to-br from-red-500 to-red-600 rounded-3xl p-5 shadow-lg">
+            <div className="flex flex-col gap-2">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm text-white/80">Estoque Baixo</p>
+                <p className="text-3xl font-bold text-white">{stats.lowStock}</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-green-500 to-green-600 rounded-3xl p-5 shadow-lg">
+            <div className="flex flex-col gap-2">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm text-white/80">Valor em Estoque</p>
+                <p className="text-2xl font-bold text-white">R$ {stats.totalValue.toFixed(2)}</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-3xl p-5 shadow-lg">
+            <div className="flex flex-col gap-2">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm text-white/80">Lucro (30d)</p>
+                <p className="text-2xl font-bold text-white">R$ {stats.recentSales.toFixed(2)}</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {topProducts.length > 0 && (
+          <Card className="bg-white rounded-3xl p-6 shadow-lg">
+            <h3 className="font-bold text-gray-900 mb-4 text-lg">Produtos Mais Vendidos</h3>
+            <ResponsiveContainer width="100%" height={320}>
+              <PieChart>
+                <Pie
+                  data={topProducts}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={(entry) => `${entry.name}`}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {topProducts.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <Card
+            onClick={() => navigate("/inventory")}
+            className="bg-white rounded-3xl p-5 shadow-lg cursor-pointer hover:shadow-xl transition-all"
+          >
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <PackageCheck className="w-6 h-6 text-blue-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900 text-center">Encomendas</h3>
+            </div>
+          </Card>
+
+          <Card
+            onClick={() => navigate("/reports")}
+            className="bg-white rounded-3xl p-5 shadow-lg cursor-pointer hover:shadow-xl transition-all"
+          >
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                <ShoppingCart className="w-6 h-6 text-purple-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900 text-center">Relatórios</h3>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
