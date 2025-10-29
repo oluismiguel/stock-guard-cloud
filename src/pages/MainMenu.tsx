@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Package, BarChart3, Warehouse } from "lucide-react";
+import { LayoutDashboard, Package, BarChart3, Warehouse, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const MainMenu = () => {
@@ -17,16 +17,23 @@ const MainMenu = () => {
     {
       title: "Encomendas",
       subtitle: "Gerenciar pedidos",
-      icon: Package,
-      path: "/inventory",
+      icon: ShoppingCart,
+      path: "/orders",
       gradient: "from-[#4169E1] to-[#0066CC]"
+    },
+    {
+      title: "Estoque",
+      subtitle: "Gestão de produtos",
+      icon: Warehouse,
+      path: "/inventory",
+      gradient: "from-[#0066CC] to-[#003399]"
     },
     {
       title: "Relatórios",
       subtitle: "Análise e gráficos",
       icon: BarChart3,
       path: "/reports",
-      gradient: "from-[#0066CC] to-[#003399]"
+      gradient: "from-[#003399] to-[#000080]"
     },
   ];
 
