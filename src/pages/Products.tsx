@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Trash2 } from "lucide-react";
+import { Search, Plus, Trash2, Package2 } from "lucide-react";
 import MobileHeader from "@/components/MobileHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,9 +50,15 @@ const Products = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [saleDialogOpen, setSaleDialogOpen] = useState(false);
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [removeQuantityDialogOpen, setRemoveQuantityDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [wasSold, setWasSold] = useState(false);
   const [discount, setDiscount] = useState(0);
+  const [orderQuantity, setOrderQuantity] = useState(1);
+  const [orderSize, setOrderSize] = useState("");
+  const [orderNotes, setOrderNotes] = useState("");
+  const [removeQuantity, setRemoveQuantity] = useState(1);
   const [formData, setFormData] = useState({
     name: "",
     sku: "",
@@ -129,12 +135,47 @@ const Products = () => {
   const handleDeleteClick = (product: Product) => {
     if (product.current_stock <= 0) {
       setSelectedProduct(product);
-      // Open dialog asking if user wants to permanently remove
       setDeleteDialogOpen(true);
       return;
     }
     setSelectedProduct(product);
-    setDeleteDialogOpen(true);
+    setRemoveQuantityDialogOpen(true);
+  };
+
+  const handleOrderClick = (product: Product) => {
+    setSelectedProduct(product);
+    setOrderQuantity(1);
+    setOrderSize(product.size);
+    setOrderNotes("");
+    setOrderDialogOpen(true);
+  };
+
+  const handleCreateOrder = async () => {
+    if (!selectedProduct) return;
+
+    try {
+      const { error } = await supabase.from("orders").insert({
+        product_id: selectedProduct.id,
+        quantity: orderQuantity,
+        size: orderSize,
+        notes: orderNotes,
+        status: "pending",
+        created_by: user?.id,
+      });
+
+      if (error) throw error;
+
+      toast.success("Encomenda criada com sucesso!");
+      setOrderDialogOpen(false);
+      setSelectedProduct(null);
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao criar encomenda");
+    }
+  };
+
+  const handleRemoveQuantityConfirm = () => {
+    setRemoveQuantityDialogOpen(false);
+    setSaleDialogOpen(true);
   };
 
   const handleDeleteConfirm = () => {
@@ -187,11 +228,11 @@ const Products = () => {
     try {
       if (wasSold) {
         const finalPrice = selectedProduct.sale_price * (1 - discountValue / 100);
-        const profit = finalPrice - selectedProduct.purchase_price;
+        const profit = (finalPrice - selectedProduct.purchase_price) * removeQuantity;
 
         await supabase.from("sales").insert({
           product_id: selectedProduct.id,
-          quantity: 1,
+          quantity: removeQuantity,
           sale_price: finalPrice,
           purchase_price: selectedProduct.purchase_price,
           discount: discountValue,
@@ -200,22 +241,24 @@ const Products = () => {
         });
       }
 
+      const newStock = Math.max(0, selectedProduct.current_stock - removeQuantity);
+
       await supabase
         .from("products")
-        .update({ current_stock: selectedProduct.current_stock - 1 })
+        .update({ current_stock: newStock })
         .eq("id", selectedProduct.id);
 
       await supabase.from("stock_movements").insert({
         product_id: selectedProduct.id,
-        movement_type: "exit",
-        quantity: 1,
+        movement_type: "saida",
+        quantity: removeQuantity,
         previous_stock: selectedProduct.current_stock,
-        new_stock: selectedProduct.current_stock - 1,
+        new_stock: newStock,
         reason: wasSold ? "Venda" : "Remoção",
         created_by: user?.id,
       });
 
-      toast.success(wasSold ? "Venda registrada com sucesso!" : "Item removido com sucesso!");
+      toast.success(wasSold ? "Venda registrada com sucesso!" : "Itens removidos com sucesso!");
       fetchProducts();
     } catch (error: any) {
       toast.error(error.message || "Erro ao processar remoção");
@@ -223,6 +266,7 @@ const Products = () => {
       setSelectedProduct(null);
       setWasSold(false);
       setDiscount(0);
+      setRemoveQuantity(1);
     }
   };
 
@@ -282,17 +326,27 @@ const Products = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right space-y-2">
                     <div className="text-2xl font-bold text-primary">{product.current_stock}</div>
                     <p className="text-xs text-muted-foreground">Unidades</p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteClick(product)}
-                      className="mt-2 text-red-500 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </Button>
+                    <div className="flex gap-1 justify-end">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleOrderClick(product)}
+                        className="text-primary hover:text-primary hover:bg-primary/10"
+                      >
+                        <Package2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteClick(product)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -487,6 +541,74 @@ const Products = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={orderDialogOpen} onOpenChange={setOrderDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Encomenda</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="order-quantity">Quantidade</Label>
+              <Input
+                id="order-quantity"
+                type="number"
+                min="1"
+                value={orderQuantity}
+                onChange={(e) => setOrderQuantity(parseInt(e.target.value))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="order-size">Tamanho</Label>
+              <Input
+                id="order-size"
+                value={orderSize}
+                onChange={(e) => setOrderSize(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="order-notes">Observações</Label>
+              <Input
+                id="order-notes"
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
+                placeholder="Adicione observações (opcional)"
+              />
+            </div>
+            <Button onClick={handleCreateOrder} className="w-full">
+              Criar Encomenda
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={removeQuantityDialogOpen} onOpenChange={setRemoveQuantityDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Quantidade a Remover</AlertDialogTitle>
+            <AlertDialogDescription>
+              Quantas unidades de "{selectedProduct?.name}" deseja remover?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="remove-qty">Quantidade</Label>
+            <Input
+              id="remove-qty"
+              type="number"
+              min="1"
+              max={selectedProduct?.current_stock || 1}
+              value={removeQuantity}
+              onChange={(e) => setRemoveQuantity(parseInt(e.target.value))}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemoveQuantityConfirm}>
+              Continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

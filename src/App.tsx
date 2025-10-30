@@ -7,6 +7,7 @@ import Auth from "./pages/Auth";
 import MainMenu from "./pages/MainMenu";
 import Index from "./pages/Index";
 import Products from "./pages/Products";
+import Orders from "./pages/Orders";
 import Incidents from "./pages/Incidents";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
@@ -24,8 +25,8 @@ const App = () => (
           <Route path="/" element={<MainMenu />} />
           <Route path="/dashboard" element={<Index />} />
           <Route path="/products" element={<Products />} />
-        <Route path="/inventory" element={<Products />} />
-        <Route path="/orders" element={<Products />} />
+          <Route path="/inventory" element={<Products />} />
+          <Route path="/orders" element={<Orders />} />
           <Route path="/incidents" element={<Incidents />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="*" element={<NotFound />} />

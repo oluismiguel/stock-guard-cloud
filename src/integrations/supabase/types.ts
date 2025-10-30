@@ -106,6 +106,53 @@ export type Database = {
         }
         Relationships: []
       }
+      orders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          delivered_at: string | null
+          id: string
+          notes: string | null
+          product_id: string | null
+          quantity: number
+          size: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          delivered_at?: string | null
+          id?: string
+          notes?: string | null
+          product_id?: string | null
+          quantity: number
+          size?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          delivered_at?: string | null
+          id?: string
+          notes?: string | null
+          product_id?: string | null
+          quantity?: number
+          size?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category: string | null

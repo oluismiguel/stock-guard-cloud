@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import MobileHeader from "@/components/MobileHeader";
 import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Download } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -38,6 +40,7 @@ const Reports = () => {
   const navigate = useNavigate();
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [stockMovements, setStockMovements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [periodType, setPeriodType] = useState<"daily" | "monthly" | "yearly">("monthly");
@@ -86,8 +89,16 @@ const Reports = () => {
         .from("products")
         .select("id, name, product_type, current_stock");
 
+      const { data: movementsData } = await supabase
+        .from("stock_movements")
+        .select("*, products(name)")
+        .gte("created_at", startDate.toISOString())
+        .lte("created_at", endDate.toISOString())
+        .order("created_at", { ascending: false });
+
       setSales(salesData || []);
       setProducts(productsData || []);
+      setStockMovements(movementsData || []);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching report data:", error);
@@ -181,6 +192,28 @@ const Reports = () => {
   const getTotalProfit = () => {
     const filteredSales = getFilteredSales();
     return filteredSales.reduce((sum, sale) => sum + sale.profit, 0);
+  };
+
+  const exportToPDF = async (tableData: any[], filename: string, headers: string[]) => {
+    try {
+      // Create CSV content
+      const csvContent = [
+        headers.join(','),
+        ...tableData.map(row => headers.map(h => {
+          const value = row[h.toLowerCase().replace(/ /g, '_')];
+          return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
+        }).join(','))
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${filename}.csv`;
+      link.click();
+    } catch (error) {
+      console.error("Error exporting:", error);
+    }
   };
 
   const uniqueTypes = [...new Set(products.map(p => p.product_type).filter(Boolean))];
@@ -327,6 +360,161 @@ const Reports = () => {
             </PieChart>
           </ResponsiveContainer>
         </Card>
+
+        {/* Relatórios Detalhados */}
+        <div className="space-y-4 pt-4">
+          <h2 className="text-xl font-bold text-foreground">Relatórios Detalhados</h2>
+
+          {/* Relatório de Vendas */}
+          <Card className="p-4 rounded-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Transações de Vendas</h3>
+              <Button
+                size="sm"
+                onClick={() => exportToPDF(
+                  sales.map(s => ({
+                    produto: products.find(p => p.id === s.product_id)?.name || 'N/A',
+                    quantidade: s.quantity,
+                    lucro: `R$ ${s.profit.toFixed(2)}`,
+                    data: format(new Date(s.sale_date), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                  })),
+                  'vendas',
+                  ['Produto', 'Quantidade', 'Lucro', 'Data']
+                )}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Exportar
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Qtd</TableHead>
+                    <TableHead>Lucro</TableHead>
+                    <TableHead>Data</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sales.slice(0, 10).map((sale, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>{products.find(p => p.id === sale.product_id)?.name || 'N/A'}</TableCell>
+                      <TableCell>{sale.quantity}</TableCell>
+                      <TableCell className="text-green-600 font-medium">R$ {sale.profit.toFixed(2)}</TableCell>
+                      <TableCell>{format(new Date(sale.sale_date), "dd/MM/yyyy HH:mm", { locale: ptBR })}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+
+          {/* Relatório de Movimentações */}
+          <Card className="p-4 rounded-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Modificações no Estoque</h3>
+              <Button
+                size="sm"
+                onClick={() => exportToPDF(
+                  stockMovements.map(m => ({
+                    produto: m.products?.name || 'N/A',
+                    tipo: m.movement_type === 'entrada' ? 'Entrada' : 'Saída',
+                    quantidade: m.quantity,
+                    motivo: m.reason || '-',
+                    data: format(new Date(m.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })
+                  })),
+                  'movimentacoes',
+                  ['Produto', 'Tipo', 'Quantidade', 'Motivo', 'Data']
+                )}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Exportar
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Qtd</TableHead>
+                    <TableHead>Motivo</TableHead>
+                    <TableHead>Data</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stockMovements.slice(0, 10).map((movement, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>{movement.products?.name || 'N/A'}</TableCell>
+                      <TableCell>
+                        <span className={movement.movement_type === 'entrada' ? 'text-green-600' : 'text-red-600'}>
+                          {movement.movement_type === 'entrada' ? 'Entrada' : 'Saída'}
+                        </span>
+                      </TableCell>
+                      <TableCell>{movement.quantity}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{movement.reason || '-'}</TableCell>
+                      <TableCell>{format(new Date(movement.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+
+          {/* Status do Sistema */}
+          <Card className="p-4 rounded-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Status do Sistema</h3>
+              <Button
+                size="sm"
+                onClick={() => exportToPDF(
+                  products.map(p => ({
+                    nome: p.name,
+                    estoque: p.current_stock,
+                    tipo: p.product_type,
+                    status: p.current_stock === 0 ? 'Esgotado' : p.current_stock < 10 ? 'Baixo' : 'Normal'
+                  })),
+                  'status-sistema',
+                  ['Nome', 'Estoque', 'Tipo', 'Status']
+                )}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Exportar
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Estoque</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {products.slice(0, 10).map((product, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell className="font-medium">{product.name}</TableCell>
+                      <TableCell>{product.current_stock}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{product.product_type}</TableCell>
+                      <TableCell>
+                        <span className={
+                          product.current_stock === 0 ? 'text-red-600' :
+                          product.current_stock < 10 ? 'text-yellow-600' :
+                          'text-green-600'
+                        }>
+                          {product.current_stock === 0 ? 'Esgotado' : product.current_stock < 10 ? 'Baixo' : 'Normal'}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
