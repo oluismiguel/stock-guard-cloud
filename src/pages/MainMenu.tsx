@@ -1,41 +1,71 @@
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { LayoutDashboard, Package, BarChart3, Warehouse, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const MainMenu = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { role, loading } = useUserRole();
 
-  const menuItems = [
-    {
-      title: "Dashboard",
-      subtitle: "Métricas e indicadores",
-      icon: LayoutDashboard,
-      path: "/dashboard",
-      gradient: "from-[#4169E1] to-[#1E90FF]"
-    },
-    {
-      title: "Encomendas",
-      subtitle: "Gerenciar pedidos",
-      icon: ShoppingCart,
-      path: "/orders",
-      gradient: "from-[#4169E1] to-[#0066CC]"
-    },
-    {
-      title: "Estoque",
-      subtitle: "Gestão de produtos",
-      icon: Warehouse,
-      path: "/inventory",
-      gradient: "from-[#0066CC] to-[#003399]"
-    },
-    {
-      title: "Relatórios",
-      subtitle: "Análise e gráficos",
-      icon: BarChart3,
-      path: "/reports",
-      gradient: "from-[#003399] to-[#000080]"
-    },
-  ];
+  useEffect(() => {
+    if (!loading && role) {
+      // Redirecionar baseado no role
+      if (role === "cliente") {
+        navigate("/catalogo");
+      } else if (role === "funcionario") {
+        navigate("/dashboard");
+      }
+      // admin fica no menu
+    }
+  }, [role, loading, navigate]);
+
+  const getMenuItems = () => {
+    if (role === "admin") {
+      return [
+        {
+          title: "Dashboard",
+          subtitle: "Métricas e indicadores",
+          icon: LayoutDashboard,
+          path: "/dashboard",
+          gradient: "from-[#4169E1] to-[#1E90FF]"
+        },
+        {
+          title: "Encomendas",
+          subtitle: "Gerenciar pedidos",
+          icon: ShoppingCart,
+          path: "/orders",
+          gradient: "from-[#4169E1] to-[#0066CC]"
+        },
+        {
+          title: "Estoque",
+          subtitle: "Gestão de produtos",
+          icon: Warehouse,
+          path: "/inventory",
+          gradient: "from-[#0066CC] to-[#003399]"
+        },
+        {
+          title: "Relatórios",
+          subtitle: "Análise e gráficos",
+          icon: BarChart3,
+          path: "/reports",
+          gradient: "from-[#003399] to-[#000080]"
+        },
+      ];
+    }
+    return [];
+  };
+
+  const menuItems = getMenuItems();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#000080] to-[#0000CD] flex items-center justify-center">
+        <div className="text-white">Carregando...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#000080] to-[#0000CD] text-white px-4 py-6">
