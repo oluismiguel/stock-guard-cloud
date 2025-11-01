@@ -1,4 +1,4 @@
-import { Home, Package, AlertTriangle, FileText, LogOut, ShoppingBag, ListOrdered } from "lucide-react";
+import { Home, Package, AlertTriangle, FileText, LogOut } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -12,40 +12,17 @@ import {
 } from "@/components/ui/sidebar";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserRole } from "@/hooks/useUserRole";
+
+const menuItems = [
+  { title: "Dashboard", url: "/", icon: Home },
+  { title: "Produtos", url: "/products", icon: Package },
+  { title: "Ocorrências", url: "/incidents", icon: AlertTriangle },
+  { title: "Relatórios", url: "/reports", icon: FileText },
+];
 
 export function AppSidebar() {
   const location = useLocation();
   const { signOut } = useAuth();
-  const { role } = useUserRole();
-
-  const getMenuItems = () => {
-    if (role === "cliente") {
-      return [
-        { title: "Catálogo", url: "/catalogo", icon: ShoppingBag },
-      ];
-    }
-
-    if (role === "funcionario") {
-      return [
-        { title: "Dashboard", url: "/dashboard", icon: Home },
-        { title: "Produtos", url: "/products", icon: Package },
-        { title: "Encomendas", url: "/orders", icon: ListOrdered },
-        { title: "Ocorrências", url: "/incidents", icon: AlertTriangle },
-      ];
-    }
-
-    // admin
-    return [
-      { title: "Dashboard", url: "/dashboard", icon: Home },
-      { title: "Produtos", url: "/products", icon: Package },
-      { title: "Encomendas", url: "/orders", icon: ListOrdered },
-      { title: "Ocorrências", url: "/incidents", icon: AlertTriangle },
-      { title: "Relatórios", url: "/reports", icon: FileText },
-    ];
-  };
-
-  const menuItems = getMenuItems();
 
   return (
     <Sidebar>
@@ -55,7 +32,7 @@ export function AppSidebar() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
               <Package className="h-4 w-4 text-white" />
             </div>
-            D-DIK SPORTS
+            StockFlow
           </SidebarGroupLabel>
           <SidebarGroupContent className="mt-4">
             <SidebarMenu>

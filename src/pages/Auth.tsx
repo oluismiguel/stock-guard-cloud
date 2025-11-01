@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,97 +6,47 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import SplashScreen from "@/components/SplashScreen";
-import { useAuth } from "@/hooks/useAuth";
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { user, signUp } = useAuth();
   const [loading, setLoading] = useState(false);
   const [usuario, setUsuario] = useState("");
   const [senha, setSenha] = useState("");
   const [showSplash, setShowSplash] = useState(true);
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
-
-  useEffect(() => {
-    if (user) {
-      navigate("/");
-    }
-  }, [user, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // Validação hardcoded
+      if (usuario !== "GERENTE" || senha !== "ADMINDIK") {
+        throw new Error("Usuário ou senha inválidos");
+      }
+
+      // Login com credenciais do Supabase (você pode criar um usuário no backend com essas credenciais)
       const { error } = await supabase.auth.signInWithPassword({
-        email: usuario,
-        password: senha,
+        email: "gerente@ddik.com",
+        password: "ADMINDIK123",
       });
 
-      if (error) throw error;
+      if (error) {
+        // Se o usuário não existe no Supabase, tenta criar
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: "gerente@ddik.com",
+          password: "ADMINDIK123",
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+          }
+        });
+        
+        if (signUpError) throw signUpError;
+      }
 
       toast.success("Login realizado com sucesso!");
       navigate("/");
     } catch (error: any) {
-      toast.error(error.message || "Email ou senha inválidos");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      // Determinar o role baseado no código de convite
-      let role: "cliente" | "funcionario" | "admin" = "cliente";
-      
-      if (inviteCode.toUpperCase() === "MACACO") {
-        role = "funcionario";
-      } else if (inviteCode.toUpperCase() === "LEAO") {
-        role = "admin";
-      }
-
-      // Criar usuário com código de convite nos metadata
-      const { data, error } = await signUp(email, password, inviteCode);
-      if (error) throw error;
-
-      // Aguardar um pouco para o trigger processar
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Se tiver código de convite válido, atualizar o role
-      if (inviteCode && data?.user) {
-        let role: "cliente" | "funcionario" | "admin" = "cliente";
-        
-        if (inviteCode.toUpperCase() === "MACACO") {
-          role = "funcionario";
-        } else if (inviteCode.toUpperCase() === "LEAO") {
-          role = "admin";
-        }
-
-        if (role !== "cliente") {
-          const { error: roleError } = await supabase
-            .from("user_roles")
-            .update({ role })
-            .eq("user_id", data.user.id);
-
-          if (roleError) {
-            console.error("Erro ao atualizar role:", roleError);
-          }
-        }
-      }
-
-      toast.success("Registro realizado com sucesso! Faça login com suas credenciais.");
-      setIsRegisterMode(false);
-      setEmail("");
-      setPassword("");
-      setInviteCode("");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao registrar");
+      toast.error(error.message || "Usuário ou senha inválidos");
     } finally {
       setLoading(false);
     }
@@ -136,159 +86,64 @@ const Auth = () => {
           </h2>
         </div>
 
-        {/* Login/Register Card */}
+        {/* Login Card */}
         <div className="w-full max-w-sm bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8">
           <p className="text-[#000080] font-bold text-center mb-8 text-sm uppercase tracking-wide">
-            {isRegisterMode ? "Criar nova conta de cliente" : "Por favor digite o usuário e senha"}
+            Por favor digite o usuário e senha
           </p>
 
-          {isRegisterMode ? (
-            <form onSubmit={handleRegister} className="space-y-6">
-              <div className="space-y-2">
-                <label 
-                  htmlFor="email" 
-                  className="text-gray-500 text-sm font-medium block"
-                >
-                  Email
-                </label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder=""
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label 
-                  htmlFor="password" 
-                  className="text-gray-500 text-sm font-medium block"
-                >
-                  Senha
-                </label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder=""
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label 
-                  htmlFor="inviteCode" 
-                  className="text-gray-500 text-sm font-medium block"
-                >
-                  Link de Indicação (Opcional)
-                </label>
-                <Input
-                  id="inviteCode"
-                  type="text"
-                  placeholder="MACACO ou LEAO"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                  className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Deixe em branco para criar conta de cliente
-                </p>
-              </div>
-
-              <Button
-                type="submit" 
-                className="w-full bg-[#000080] hover:bg-[#000060] text-white font-semibold py-6 rounded-lg mt-8" 
-                disabled={loading}
+          <form onSubmit={handleSignIn} className="space-y-6">
+            <div className="space-y-2">
+              <label 
+                htmlFor="usuario" 
+                className="text-gray-500 text-sm font-medium block"
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Registrando...
-                  </>
-                ) : (
-                  "Registrar"
-                )}
-              </Button>
+                Usuario
+              </label>
+              <Input
+                id="usuario"
+                type="text"
+                placeholder=""
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value.toUpperCase())}
+                required
+                className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
+              />
+            </div>
 
-              <p className="text-center text-sm mt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsRegisterMode(false)}
-                  className="text-[#000080] hover:underline font-medium"
-                >
-                  Já tem conta? Faça login
-                </button>
-              </p>
-            </form>
-          ) : (
-            <form onSubmit={handleSignIn} className="space-y-6">
-              <div className="space-y-2">
-                <label 
-                  htmlFor="usuario" 
-                  className="text-gray-500 text-sm font-medium block"
-                >
-                  Email
-                </label>
-                <Input
-                  id="usuario"
-                  type="email"
-                  placeholder=""
-                  value={usuario}
-                  onChange={(e) => setUsuario(e.target.value)}
-                  required
-                  className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label 
-                  htmlFor="senha" 
-                  className="text-gray-500 text-sm font-medium block"
-                >
-                  Senha
-                </label>
-                <Input
-                  id="senha"
-                  type="password"
-                  placeholder=""
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  required
-                  className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
-                />
-              </div>
-
-              <Button 
-                type="submit" 
-                className="w-full bg-[#000080] hover:bg-[#000060] text-white font-semibold py-6 rounded-lg mt-8" 
-                disabled={loading}
+            <div className="space-y-2">
+              <label 
+                htmlFor="senha" 
+                className="text-gray-500 text-sm font-medium block"
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Entrando...
-                  </>
-                ) : (
-                  "Entrar"
-                )}
-              </Button>
+                Senha
+              </label>
+              <Input
+                id="senha"
+                type="password"
+                placeholder=""
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                required
+                className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
+              />
+            </div>
 
-              <p className="text-center text-sm mt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsRegisterMode(true)}
-                  className="text-[#000080] hover:underline font-medium"
-                >
-                  Não tem registro? Clique aqui
-                </button>
-              </p>
-            </form>
-          )}
+            <Button 
+              type="submit" 
+              className="w-full bg-[#000080] hover:bg-[#000060] text-white font-semibold py-6 rounded-lg mt-8" 
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Entrando...
+                </>
+              ) : (
+                "Entrar"
+              )}
+            </Button>
+          </form>
         </div>
       </div>
     </div>

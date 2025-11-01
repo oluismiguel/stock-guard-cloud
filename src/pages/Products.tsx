@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -43,7 +42,6 @@ interface Product {
 
 const Products = () => {
   const { user, loading: authLoading } = useAuth();
-  const { role } = useUserRole();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -358,16 +356,14 @@ const Products = () => {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        {role === "admin" && (
-          <DialogTrigger asChild>
-            <Button
-              className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-2xl"
-              size="icon"
-            >
-              <Plus className="w-6 h-6" />
-            </Button>
-          </DialogTrigger>
-        )}
+        <DialogTrigger asChild>
+          <Button
+            className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-2xl"
+            size="icon"
+          >
+            <Plus className="w-6 h-6" />
+          </Button>
+        </DialogTrigger>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Adicionar Produto</DialogTitle>
