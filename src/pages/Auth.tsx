@@ -18,6 +18,7 @@ const Auth = () => {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -30,42 +31,17 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      let email = "";
-      let password = "";
-
-      // Validação para credenciais hardcoded
-      if (usuario === "GERENTE" && senha === "ADMINDIK") {
-        email = "gerente@ddik.com";
-        password = "ADMINDIK123";
-      } else if (usuario === "DIKMANAGERSHOP" && senha === "DIKSHOP") {
-        email = "funcionario@ddik.com";
-        password = "DIKSHOP123";
-      } else {
-        throw new Error("Usuário ou senha inválidos");
-      }
-
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: usuario,
+        password: senha,
       });
 
-      if (error) {
-        // Se o usuário não existe no Supabase, tenta criar
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          }
-        });
-        
-        if (signUpError) throw signUpError;
-      }
+      if (error) throw error;
 
       toast.success("Login realizado com sucesso!");
       navigate("/");
     } catch (error: any) {
-      toast.error(error.message || "Usuário ou senha inválidos");
+      toast.error(error.message || "Email ou senha inválidos");
     } finally {
       setLoading(false);
     }
@@ -76,14 +52,49 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await signUp(email, password);
+      // Determinar o role baseado no código de convite
+      let role: "cliente" | "funcionario" | "admin" = "cliente";
+      
+      if (inviteCode.toUpperCase() === "MACACO") {
+        role = "funcionario";
+      } else if (inviteCode.toUpperCase() === "LEAO") {
+        role = "admin";
+      }
 
+      // Criar usuário com código de convite nos metadata
+      const { data, error } = await signUp(email, password, inviteCode);
       if (error) throw error;
 
-      toast.success("Registro realizado com sucesso! Você pode fazer login agora.");
+      // Aguardar um pouco para o trigger processar
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Se tiver código de convite válido, atualizar o role
+      if (inviteCode && data?.user) {
+        let role: "cliente" | "funcionario" | "admin" = "cliente";
+        
+        if (inviteCode.toUpperCase() === "MACACO") {
+          role = "funcionario";
+        } else if (inviteCode.toUpperCase() === "LEAO") {
+          role = "admin";
+        }
+
+        if (role !== "cliente") {
+          const { error: roleError } = await supabase
+            .from("user_roles")
+            .update({ role })
+            .eq("user_id", data.user.id);
+
+          if (roleError) {
+            console.error("Erro ao atualizar role:", roleError);
+          }
+        }
+      }
+
+      toast.success("Registro realizado com sucesso! Faça login com suas credenciais.");
       setIsRegisterMode(false);
       setEmail("");
       setPassword("");
+      setInviteCode("");
     } catch (error: any) {
       toast.error(error.message || "Erro ao registrar");
     } finally {
@@ -169,7 +180,27 @@ const Auth = () => {
                 />
               </div>
 
-              <Button 
+              <div className="space-y-2">
+                <label 
+                  htmlFor="inviteCode" 
+                  className="text-gray-500 text-sm font-medium block"
+                >
+                  Link de Indicação (Opcional)
+                </label>
+                <Input
+                  id="inviteCode"
+                  type="text"
+                  placeholder="MACACO ou LEAO"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Deixe em branco para criar conta de cliente
+                </p>
+              </div>
+
+              <Button
                 type="submit" 
                 className="w-full bg-[#000080] hover:bg-[#000060] text-white font-semibold py-6 rounded-lg mt-8" 
                 disabled={loading}
@@ -201,14 +232,14 @@ const Auth = () => {
                   htmlFor="usuario" 
                   className="text-gray-500 text-sm font-medium block"
                 >
-                  Usuario
+                  Email
                 </label>
                 <Input
                   id="usuario"
-                  type="text"
+                  type="email"
                   placeholder=""
                   value={usuario}
-                  onChange={(e) => setUsuario(e.target.value.toUpperCase())}
+                  onChange={(e) => setUsuario(e.target.value)}
                   required
                   className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
                 />

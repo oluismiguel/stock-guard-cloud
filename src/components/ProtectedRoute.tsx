@@ -31,7 +31,7 @@ const ProtectedRoute = ({
         // Redirect based on role
         if (role === "cliente") {
           navigate("/catalogo");
-        } else if (role === "funcionario") {
+        } else if (role === "funcionario" || role === "admin") {
           navigate("/dashboard");
         } else {
           navigate("/auth");
