@@ -27,7 +27,7 @@ const ProtectedRoute = ({
         } else if (role === 'funcionario') {
           navigate('/products');
         } else if (role === 'gerente') {
-          navigate('/dashboard');
+          navigate('/');
         } else {
           navigate('/');
         }

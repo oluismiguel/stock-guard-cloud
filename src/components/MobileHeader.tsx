@@ -14,7 +14,7 @@ interface MobileHeaderProps {
 
 const MobileHeader = ({ title, subtitle }: MobileHeaderProps) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const [profilePicture, setProfilePicture] = useState("");
 
@@ -44,13 +44,17 @@ const MobileHeader = ({ title, subtitle }: MobileHeaderProps) => {
     <>
       <div className="bg-gradient-to-b from-[#000080] to-[#0000CD] text-white px-4 py-6 pb-8">
         <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-white/80 active:text-white"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="text-sm">Voltar</span>
-          </button>
+          {role === 'gerente' ? (
+            <button
+              onClick={() => navigate("/")}
+              className="flex items-center gap-2 text-white/80 active:text-white"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm">Voltar</span>
+            </button>
+          ) : (
+            <div className="w-16" />
+          )}
           
           <div className="flex gap-2 items-center">
             <NotificationBell />

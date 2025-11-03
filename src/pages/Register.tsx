@@ -137,7 +137,7 @@ const Register = () => {
               <Input
                 id="inviteCode"
                 type="text"
-                placeholder="MACACO ou LEAO"
+                placeholder="Digite aqui"
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                 className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"

@@ -7,16 +7,15 @@ const MainMenu = () => {
   const navigate = useNavigate();
   const { user, role, loading } = useAuth();
 
-  // Auto-redirect based on role
+  // Auto-redirect based on role (only for cliente and funcionario)
   useEffect(() => {
     if (!loading && role) {
       if (role === 'cliente') {
         navigate('/catalogo');
       } else if (role === 'funcionario') {
         navigate('/products');
-      } else if (role === 'gerente') {
-        navigate('/dashboard');
       }
+      // gerente stays on MainMenu - no redirect
     }
   }, [role, loading, navigate]);
 
