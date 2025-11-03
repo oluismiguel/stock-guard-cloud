@@ -1,4 +1,4 @@
-import { Home, Package, AlertTriangle, FileText, LogOut } from "lucide-react";
+import { Home, Package, AlertTriangle, FileText, LogOut, ShoppingCart } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -14,15 +14,21 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 const menuItems = [
-  { title: "Dashboard", url: "/", icon: Home },
-  { title: "Produtos", url: "/products", icon: Package },
-  { title: "Ocorrências", url: "/incidents", icon: AlertTriangle },
-  { title: "Relatórios", url: "/reports", icon: FileText },
+  { title: "Dashboard", url: "/dashboard", icon: Home, roles: ['gerente', 'admin'] },
+  { title: "Produtos", url: "/products", icon: Package, roles: ['funcionario', 'gerente', 'admin'] },
+  { title: "Pedidos", url: "/orders", icon: ShoppingCart, roles: ['funcionario', 'gerente', 'admin'] },
+  { title: "Ocorrências", url: "/incidents", icon: AlertTriangle, roles: ['funcionario', 'gerente', 'admin'] },
+  { title: "Relatórios", url: "/reports", icon: FileText, roles: ['gerente', 'admin'] },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, role } = useAuth();
+  
+  // Filter menu items based on user role
+  const filteredMenuItems = menuItems.filter(item => 
+    !item.roles || (role && item.roles.includes(role))
+  );
 
   return (
     <Sidebar>
@@ -36,7 +42,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent className="mt-4">
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {filteredMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

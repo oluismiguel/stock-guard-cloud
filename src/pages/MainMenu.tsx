@@ -1,10 +1,24 @@
 import { useNavigate } from "react-router-dom";
 import { LayoutDashboard, Package, BarChart3, Warehouse, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
 
 const MainMenu = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, role, loading } = useAuth();
+
+  // Auto-redirect based on role
+  useEffect(() => {
+    if (!loading && role) {
+      if (role === 'cliente') {
+        navigate('/catalogo');
+      } else if (role === 'funcionario') {
+        navigate('/products');
+      } else if (role === 'gerente') {
+        navigate('/dashboard');
+      }
+    }
+  }, [role, loading, navigate]);
 
   const menuItems = [
     {

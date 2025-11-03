@@ -4,40 +4,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import SplashScreen from "@/components/SplashScreen";
 import { useAuth } from "@/hooks/useAuth";
 
-const Auth = () => {
+const Register = () => {
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { signUp } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [showSplash, setShowSplash] = useState(true);
+  const [inviteCode, setInviteCode] = useState("");
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await signIn(email, senha);
+      const { error } = await signUp(email, senha, inviteCode);
 
       if (error) {
         throw new Error(error.message);
       }
 
-      toast.success("Login realizado com sucesso!");
-      navigate("/");
+      toast.success("Cadastro realizado com sucesso! Você já pode fazer login.");
+      navigate("/auth");
     } catch (error: any) {
-      toast.error(error.message || "E-mail ou senha inválidos");
+      toast.error(error.message || "Erro ao criar conta");
     } finally {
       setLoading(false);
     }
   };
-
-  if (showSplash) {
-    return <SplashScreen onComplete={() => setShowSplash(false)} />;
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#000080] to-[#0000CD] relative overflow-hidden">
@@ -60,7 +56,7 @@ const Auth = () => {
       {/* Content */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-start pt-16 px-6">
         {/* Logo */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-8">
           <h1 className="text-white font-black text-4xl md:text-5xl mb-2 tracking-wider">
             D-DIK
           </h1>
@@ -69,13 +65,31 @@ const Auth = () => {
           </h2>
         </div>
 
-        {/* Login Card */}
+        {/* Register Card */}
         <div className="w-full max-w-sm bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8">
           <p className="text-[#000080] font-bold text-center mb-8 text-sm uppercase tracking-wide">
-            Por favor digite o usuário e senha
+            Criar Nova Conta
           </p>
 
-          <form onSubmit={handleSignIn} className="space-y-6">
+          <form onSubmit={handleSignUp} className="space-y-5">
+            <div className="space-y-2">
+              <label 
+                htmlFor="nome" 
+                className="text-gray-500 text-sm font-medium block"
+              >
+                Nome de Usuário
+              </label>
+              <Input
+                id="nome"
+                type="text"
+                placeholder=""
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                required
+                className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
+              />
+            </div>
+
             <div className="space-y-2">
               <label 
                 htmlFor="email" 
@@ -108,8 +122,29 @@ const Auth = () => {
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
                 required
+                minLength={6}
                 className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
               />
+            </div>
+
+            <div className="space-y-2">
+              <label 
+                htmlFor="inviteCode" 
+                className="text-gray-500 text-sm font-medium block"
+              >
+                Link de Indicação (Opcional)
+              </label>
+              <Input
+                id="inviteCode"
+                type="text"
+                placeholder="MACACO ou LEAO"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Deixe em branco para conta de Cliente
+              </p>
             </div>
 
             <Button 
@@ -120,19 +155,19 @@ const Auth = () => {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Entrando...
+                  Cadastrando...
                 </>
               ) : (
-                "Entrar"
+                "Cadastrar"
               )}
             </Button>
 
             <div className="text-center mt-4">
               <Link 
-                to="/register" 
+                to="/auth" 
                 className="text-[#000080] hover:text-[#000060] text-sm font-medium"
               >
-                Não tem registro? Clique aqui
+                Já tem conta? Faça login
               </Link>
             </div>
           </form>
@@ -142,4 +177,4 @@ const Auth = () => {
   );
 };
 
-export default Auth;
+export default Register;
