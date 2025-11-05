@@ -4,8 +4,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Trash2, Package2 } from "lucide-react";
+import { Search, Plus, Trash2, Package2, ImagePlus } from "lucide-react";
 import MobileHeader from "@/components/MobileHeader";
+import { ProductImageManager } from "@/components/ProductImageManager";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -59,6 +60,8 @@ const Products = () => {
   const [orderSize, setOrderSize] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
   const [removeQuantity, setRemoveQuantity] = useState(1);
+  const [imageManagerOpen, setImageManagerOpen] = useState(false);
+  const [selectedProductForImages, setSelectedProductForImages] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     sku: "",
@@ -148,6 +151,11 @@ const Products = () => {
     setOrderSize(product.size);
     setOrderNotes("");
     setOrderDialogOpen(true);
+  };
+
+  const handleImageManagerClick = (product: Product) => {
+    setSelectedProductForImages(product);
+    setImageManagerOpen(true);
   };
 
   const handleCreateOrder = async () => {
@@ -329,12 +337,22 @@ const Products = () => {
                   <div className="text-right space-y-2">
                     <div className="text-2xl font-bold text-primary">{product.current_stock}</div>
                     <p className="text-xs text-muted-foreground">Unidades</p>
-                    <div className="flex gap-1 justify-end">
+                    <div className="flex gap-1 justify-end flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleImageManagerClick(product)}
+                        className="text-blue-600 hover:text-blue-600 hover:bg-blue-50"
+                        title="Gerenciar Imagens"
+                      >
+                        <ImagePlus className="w-4 h-4" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="icon"
                         onClick={() => handleOrderClick(product)}
                         className="text-primary hover:text-primary hover:bg-primary/10"
+                        title="Criar Encomenda"
                       >
                         <Package2 className="w-4 h-4" />
                       </Button>
@@ -343,6 +361,7 @@ const Products = () => {
                         size="icon"
                         onClick={() => handleDeleteClick(product)}
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        title="Remover Produto"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -609,6 +628,15 @@ const Products = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {selectedProductForImages && (
+        <ProductImageManager
+          productId={selectedProductForImages.id}
+          productName={selectedProductForImages.name}
+          open={imageManagerOpen}
+          onOpenChange={setImageManagerOpen}
+          onImagesUpdated={fetchProducts}
+        />
+      )}
     </div>
   );
 };

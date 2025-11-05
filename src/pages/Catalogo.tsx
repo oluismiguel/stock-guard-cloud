@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import NotificationBell from "@/components/NotificationBell";
+import { ImageCarousel } from "@/components/ImageCarousel";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -27,10 +28,18 @@ interface Product {
   category: string | null;
 }
 
+interface ProductImage {
+  id: string;
+  product_id: string;
+  image_url: string;
+  display_order: number;
+}
+
 const Catalogo = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
+  const [productImages, setProductImages] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -46,7 +55,30 @@ const Catalogo = () => {
         .order('name');
 
       if (error) throw error;
-      setProducts(data || []);
+      
+      const productsData = data || [];
+      setProducts(productsData);
+      
+      // Fetch images for all products
+      if (productsData.length > 0) {
+        const productIds = productsData.map(p => p.id);
+        const { data: imagesData, error: imagesError } = await supabase
+          .from('product_images')
+          .select('*')
+          .in('product_id', productIds)
+          .order('display_order');
+
+        if (!imagesError && imagesData) {
+          const imagesByProduct: Record<string, string[]> = {};
+          imagesData.forEach((img: ProductImage) => {
+            if (!imagesByProduct[img.product_id]) {
+              imagesByProduct[img.product_id] = [];
+            }
+            imagesByProduct[img.product_id].push(img.image_url);
+          });
+          setProductImages(imagesByProduct);
+        }
+      }
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
@@ -115,17 +147,12 @@ const Catalogo = () => {
           {products.map((product) => (
             <Card key={product.id} className="bg-white/10 backdrop-blur-sm border-white/20 hover:bg-white/15 transition-all duration-300">
               <CardHeader>
-                <div className="aspect-square bg-white/5 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
-                  {product.image_url ? (
-                    <img 
-                      src={product.image_url} 
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-white/50 text-4xl">📦</span>
-                  )}
-                </div>
+                <ImageCarousel 
+                  images={productImages[product.id] || (product.image_url ? [product.image_url] : [])}
+                  alt={product.name}
+                  autoRotate={true}
+                  interval={3000}
+                />
                 <CardTitle className="text-white text-lg">{product.name}</CardTitle>
                 {product.description && (
                   <CardDescription className="text-white/70 line-clamp-2">

@@ -10,6 +10,16 @@ import { Card } from "@/components/ui/card";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Order {
   id: string;
@@ -66,7 +76,20 @@ const Orders = () => {
     }
   };
 
-  const handleCompleteOrder = async (orderId: string, productId: string, quantity: number) => {
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [orderToComplete, setOrderToComplete] = useState<{orderId: string; productId: string; quantity: number} | null>(null);
+
+  const handleCompleteOrderClick = (orderId: string, productId: string, quantity: number) => {
+    setOrderToComplete({ orderId, productId, quantity });
+    setConfirmDialogOpen(true);
+  };
+
+  const handleCompleteOrder = async () => {
+    if (!orderToComplete) return;
+    
+    const { orderId, productId, quantity } = orderToComplete;
+    setConfirmDialogOpen(false);
+    
     try {
       // Get current product stock
       const { data: product, error: productError } = await supabase
@@ -123,6 +146,8 @@ const Orders = () => {
         description: "Não foi possível concluir a encomenda",
         variant: "destructive",
       });
+    } finally {
+      setOrderToComplete(null);
     }
   };
 
@@ -215,10 +240,10 @@ const Orders = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         {order.status === "pending" && (
-                          <div className="flex gap-2 justify-end">
+                           <div className="flex gap-2 justify-end">
                             <Button
                               size="sm"
-                              onClick={() => handleCompleteOrder(order.id, order.product_id, order.quantity)}
+                              onClick={() => handleCompleteOrderClick(order.id, order.product_id, order.quantity)}
                             >
                               <CheckCircle2 className="w-4 h-4" />
                             </Button>
@@ -240,6 +265,23 @@ const Orders = () => {
           )}
         </Card>
       </div>
+
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Encomenda</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja confirmar esta encomenda? O estoque será atualizado automaticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCompleteOrder}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

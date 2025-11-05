@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import SplashScreen from "@/components/SplashScreen";
@@ -101,9 +102,8 @@ const Auth = () => {
               >
                 Senha
               </label>
-              <Input
+              <PasswordInput
                 id="senha"
-                type="password"
                 placeholder=""
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}

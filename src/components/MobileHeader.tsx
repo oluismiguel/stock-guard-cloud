@@ -1,6 +1,7 @@
 import { ArrowLeft, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import * as React from "react";
 import { NotificationBell } from "./NotificationBell";
 import UserProfile from "./UserProfile";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,42 +20,47 @@ const MobileHeader = ({ title, subtitle }: MobileHeaderProps) => {
   const [profilePicture, setProfilePicture] = useState("");
 
   useEffect(() => {
-    if (user) {
-      fetchProfile();
-    }
-  }, [user]);
+    const fetchProfile = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("profile_picture_url")
+          .eq("id", user.id)
+          .single();
 
-  const fetchProfile = async () => {
-    try {
-      const { data } = await supabase
-        .from("profiles")
-        .select("profile_picture_url")
-        .eq("id", user?.id)
-        .single();
-
-      if (data?.profile_picture_url) {
-        setProfilePicture(data.profile_picture_url);
+        if (data?.profile_picture_url) {
+          setProfilePicture(data.profile_picture_url);
+        }
+      } catch (error) {
+        console.error("Error fetching profile:", error);
       }
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-    }
-  };
+    };
+
+    fetchProfile();
+  }, [user?.id]);
+
+  // Memoize o botão de voltar para evitar re-renders
+  const BackButton = React.useMemo(() => {
+    if (role !== 'gerente') return <div className="w-16" />;
+    
+    return (
+      <button
+        onClick={() => navigate("/")}
+        className="flex items-center gap-2 text-white/80 active:text-white"
+      >
+        <ArrowLeft className="w-5 h-5" />
+        <span className="text-sm">Voltar</span>
+      </button>
+    );
+  }, [role, navigate]);
 
   return (
     <>
       <div className="bg-gradient-to-b from-[#000080] to-[#0000CD] text-white px-4 py-6 pb-8">
         <div className="flex items-center justify-between mb-4">
-          {role === 'gerente' ? (
-            <button
-              onClick={() => navigate("/")}
-              className="flex items-center gap-2 text-white/80 active:text-white"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="text-sm">Voltar</span>
-            </button>
-          ) : (
-            <div className="w-16" />
-          )}
+          {BackButton}
           
           <div className="flex gap-2 items-center">
             <NotificationBell />

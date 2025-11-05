@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,8 +16,23 @@ const Register = () => {
   const [senha, setSenha] = useState("");
   const [inviteCode, setInviteCode] = useState("");
 
+  const validatePassword = (password: string): boolean => {
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    
+    return hasUpperCase && hasLowerCase && hasNumber && hasSpecialChar && password.length >= 8;
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validatePassword(senha)) {
+      toast.error("A senha deve conter pelo menos 8 caracteres, incluindo maiúsculas, minúsculas, números e caracteres especiais");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -115,16 +131,18 @@ const Register = () => {
               >
                 Senha
               </label>
-              <Input
+              <PasswordInput
                 id="senha"
-                type="password"
                 placeholder=""
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
                 className="border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-[#000080] bg-transparent"
               />
+              <p className="text-xs text-gray-400 mt-1">
+                Mínimo 8 caracteres, com maiúsculas, minúsculas, números e caractere especial
+              </p>
             </div>
 
             <div className="space-y-2">
