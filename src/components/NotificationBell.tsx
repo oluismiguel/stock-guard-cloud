@@ -143,20 +143,20 @@ export function NotificationBell() {
             {notifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
-                className={`flex flex-col items-start p-4 cursor-pointer ${
+                className={`flex flex-col items-start p-4 cursor-pointer transition-colors ${
                   !notification.is_read ? "bg-primary/5" : ""
-                }`}
+                } hover:bg-blue-50 dark:hover:bg-blue-950/50`}
                 onClick={() => markAsRead(notification.id)}
               >
                 <div className="flex items-center justify-between w-full">
-                  <span className="font-semibold text-sm">
+                  <span className="font-semibold text-sm text-foreground">
                     {notification.title}
                   </span>
                   {!notification.is_read && (
                     <div className="h-2 w-2 rounded-full bg-primary" />
                   )}
                 </div>
-                <span className="text-xs text-muted-foreground mt-1">
+                <span className="text-xs text-foreground/80 mt-1">
                   {notification.message}
                 </span>
                 <span className="text-xs text-muted-foreground mt-1">

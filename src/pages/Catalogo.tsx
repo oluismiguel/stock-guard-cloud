@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import NotificationBell from "@/components/NotificationBell";
 import { ImageCarousel } from "@/components/ImageCarousel";
+import { ContactDialog } from "@/components/ContactDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -107,6 +108,7 @@ const Catalogo = () => {
           
           <div className="flex items-center gap-4">
             <NotificationBell />
+            <ContactDialog />
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
