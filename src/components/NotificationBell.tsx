@@ -143,9 +143,9 @@ export function NotificationBell() {
             {notifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
-                className={`flex flex-col items-start p-4 cursor-pointer transition-colors ${
+                className={`flex flex-col items-start p-4 cursor-pointer transition-colors duration-200 ${
                   !notification.is_read ? "bg-primary/5" : ""
-                } hover:bg-blue-50 dark:hover:bg-blue-950/50`}
+                } hover:bg-primary/10`}
                 onClick={() => markAsRead(notification.id)}
               >
                 <div className="flex items-center justify-between w-full">
@@ -156,7 +156,7 @@ export function NotificationBell() {
                     <div className="h-2 w-2 rounded-full bg-primary" />
                   )}
                 </div>
-                <span className="text-xs text-foreground/80 mt-1">
+                <span className="text-xs text-foreground/90 mt-1">
                   {notification.message}
                 </span>
                 <span className="text-xs text-muted-foreground mt-1">
