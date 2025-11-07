@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import MobileHeader from "@/components/MobileHeader";
-import { Package, AlertTriangle, TrendingUp, ShoppingCart, Clock, CheckCircle2 } from "lucide-react";
+import { Package, AlertTriangle, TrendingUp, ShoppingCart, Clock, CheckCircle2, Trophy, Activity } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))"];
@@ -21,6 +21,10 @@ const Index = () => {
     totalProfit: 0,
     pendingOrders: 0,
     completedOrders: 0,
+    totalOrders: 0,
+    topProduct: { name: '-', quantity: 0 },
+    avgResponseTime: 0,
+    systemStatus: 'good' as 'good' | 'medium' | 'bad',
   });
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [stockStatusData, setStockStatusData] = useState<any[]>([]);
@@ -37,6 +41,7 @@ const Index = () => {
   }, [user]);
 
   const fetchStats = async () => {
+    const startTime = performance.now();
     try {
       const { data: products } = await supabase
         .from("products")
@@ -50,6 +55,9 @@ const Index = () => {
         .from("orders")
         .select("*");
 
+      const endTime = performance.now();
+      const responseTime = Math.round(endTime - startTime);
+
       const totalProducts = products?.length || 0;
       const activeProducts = products?.filter(p => p.is_active).length || 0;
       const lowStock = products?.filter(p => p.current_stock <= p.minimum_stock && p.is_active).length || 0;
@@ -58,6 +66,32 @@ const Index = () => {
       const totalProfit = sales?.reduce((sum, s) => sum + s.profit, 0) || 0;
       const pendingOrders = orders?.filter(o => o.status === 'pending').length || 0;
       const completedOrders = orders?.filter(o => o.status === 'completed').length || 0;
+      const totalOrders = orders?.length || 0;
+
+      // Find top selling product
+      const productSales = sales?.reduce((acc: any, sale) => {
+        const productId = sale.product_id;
+        if (!acc[productId]) {
+          acc[productId] = { productId, quantity: 0 };
+        }
+        acc[productId].quantity += sale.quantity;
+        return acc;
+      }, {});
+
+      const topProductData = Object.values(productSales || {})
+        .sort((a: any, b: any) => b.quantity - a.quantity)[0] as any;
+
+      const topProduct = topProductData
+        ? {
+            name: products?.find(p => p.id === topProductData.productId)?.name || '-',
+            quantity: topProductData.quantity,
+          }
+        : { name: '-', quantity: 0 };
+
+      // Determine system status based on response time
+      let systemStatus: 'good' | 'medium' | 'bad' = 'good';
+      if (responseTime > 1000) systemStatus = 'bad';
+      else if (responseTime > 500) systemStatus = 'medium';
 
       // Category distribution
       const categories = products?.reduce((acc: any, p) => {
@@ -93,7 +127,11 @@ const Index = () => {
         totalSales, 
         totalProfit,
         pendingOrders,
-        completedOrders
+        completedOrders,
+        totalOrders,
+        topProduct,
+        avgResponseTime: responseTime,
+        systemStatus,
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -205,6 +243,73 @@ const Index = () => {
             subtitle="Encomendas"
             gradient="bg-gradient-to-br from-chart-1 to-chart-1/80 text-white"
           />
+        </div>
+
+        {/* New Info Cards */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="p-4 rounded-2xl shadow-sm bg-gradient-to-br from-violet-500 to-violet-600 text-white">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm opacity-90">Quantidade de Encomendas</p>
+                <p className="text-2xl font-bold">{stats.totalOrders}</p>
+                <p className="text-xs opacity-75">Total de pedidos</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <ShoppingCart className="w-5 h-5" />
+              </div>
+            </div>
+          </Card>
+          
+          <Card className="p-4 rounded-2xl shadow-sm bg-gradient-to-br from-amber-500 to-amber-600 text-white">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm opacity-90">Item mais vendido</p>
+                <p className="text-lg font-bold truncate">{stats.topProduct.name}</p>
+                <p className="text-xs opacity-75">{stats.topProduct.quantity} vendidos</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <Trophy className="w-5 h-5" />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="p-4 rounded-2xl shadow-sm bg-gradient-to-br from-cyan-500 to-cyan-600 text-white">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm opacity-90">Tempo de resposta médio do sistema em ms</p>
+                <p className="text-2xl font-bold">{stats.avgResponseTime}</p>
+                <p className="text-xs opacity-75">Milissegundos</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <Clock className="w-5 h-5" />
+              </div>
+            </div>
+          </Card>
+          
+          <Card className={`p-4 rounded-2xl shadow-sm ${
+            stats.systemStatus === 'good' 
+              ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' 
+              : stats.systemStatus === 'medium'
+              ? 'bg-gradient-to-br from-yellow-500 to-yellow-600'
+              : 'bg-gradient-to-br from-red-500 to-red-600'
+          } text-white`}>
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm opacity-90">Status de funcionamento do sistema</p>
+                <p className="text-lg font-bold">
+                  {stats.systemStatus === 'good' ? 'Bom' : stats.systemStatus === 'medium' ? 'Médio' : 'Ruim'}
+                </p>
+                <p className="text-xs opacity-75">
+                  {stats.systemStatus === 'good' ? '(verde)' : stats.systemStatus === 'medium' ? '(amarelo)' : '(vermelho)'}
+                </p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <Activity className="w-5 h-5" />
+              </div>
+            </div>
+          </Card>
         </div>
 
         {/* Charts */}
