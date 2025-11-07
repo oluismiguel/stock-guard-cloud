@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Trash2, Package2, ImagePlus } from "lucide-react";
+import { Search, Plus, Trash2, Package2, ImagePlus, Pencil } from "lucide-react";
 import MobileHeader from "@/components/MobileHeader";
 import { ProductImageManager } from "@/components/ProductImageManager";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,7 @@ const Products = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [saleDialogOpen, setSaleDialogOpen] = useState(false);
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
@@ -132,6 +133,72 @@ const Products = () => {
       fetchProducts();
     } catch (error: any) {
       toast.error(error.message || "Erro ao adicionar produto");
+    }
+  };
+
+  const handleEditClick = (product: Product) => {
+    setSelectedProduct(product);
+    setFormData({
+      name: product.name,
+      sku: product.sku,
+      product_type: product.product_type,
+      size: product.size,
+      current_stock: product.current_stock,
+      minimum_stock: product.minimum_stock,
+      maximum_stock: product.maximum_stock,
+      purchase_price: product.purchase_price,
+      sale_price: product.sale_price,
+      description: "",
+      category: "Geral",
+      location: "Estoque Principal",
+      is_active: true,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProduct) return;
+
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({
+          name: formData.name,
+          sku: formData.sku,
+          product_type: formData.product_type,
+          size: formData.size,
+          current_stock: formData.current_stock,
+          minimum_stock: formData.minimum_stock,
+          maximum_stock: formData.maximum_stock,
+          purchase_price: formData.purchase_price,
+          sale_price: formData.sale_price,
+        })
+        .eq("id", selectedProduct.id);
+
+      if (error) throw error;
+
+      toast.success("Produto atualizado com sucesso!");
+      setEditDialogOpen(false);
+      setSelectedProduct(null);
+      setFormData({
+        name: "",
+        sku: "",
+        product_type: "",
+        size: "",
+        current_stock: 0,
+        minimum_stock: 10,
+        maximum_stock: 1000,
+        purchase_price: 0,
+        sale_price: 0,
+        description: "",
+        category: "Geral",
+        location: "Estoque Principal",
+        is_active: true,
+      });
+      fetchProducts();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao atualizar produto");
     }
   };
 
@@ -341,6 +408,15 @@ const Products = () => {
                       <Button
                         variant="outline"
                         size="icon"
+                        onClick={() => handleEditClick(product)}
+                        className="text-orange-600 hover:text-orange-600 hover:bg-orange-50"
+                        title="Editar Produto"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
                         onClick={() => handleImageManagerClick(product)}
                         className="text-blue-600 hover:text-blue-600 hover:bg-blue-50"
                         title="Gerenciar Imagens"
@@ -454,7 +530,7 @@ const Products = () => {
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="stock">Quantidade Inicial</Label>
+                <Label htmlFor="stock">Qtd. Inicial</Label>
                 <Input
                   id="stock"
                   type="number"
@@ -492,6 +568,121 @@ const Products = () => {
             </div>
             <Button type="submit" className="w-full">
               Adicionar
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Produto</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="edit_name">Nome do Produto</Label>
+              <Input
+                id="edit_name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_sku">SKU</Label>
+              <Input
+                id="edit_sku"
+                value={formData.sku}
+                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_product_type">Tipo</Label>
+              <Input
+                id="edit_product_type"
+                value={formData.product_type}
+                onChange={(e) => setFormData({ ...formData, product_type: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_size">Tamanho</Label>
+              <Input
+                id="edit_size"
+                value={formData.size}
+                onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit_purchase_price">Preço de Compra</Label>
+                <Input
+                  id="edit_purchase_price"
+                  type="number"
+                  step="0.01"
+                  value={formData.purchase_price}
+                  onChange={(e) =>
+                    setFormData({ ...formData, purchase_price: parseFloat(e.target.value) })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_sale_price">Preço de Venda</Label>
+                <Input
+                  id="edit_sale_price"
+                  type="number"
+                  step="0.01"
+                  value={formData.sale_price}
+                  onChange={(e) =>
+                    setFormData({ ...formData, sale_price: parseFloat(e.target.value) })
+                  }
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="edit_stock">Qtd. Inicial</Label>
+                <Input
+                  id="edit_stock"
+                  type="number"
+                  value={formData.current_stock}
+                  onChange={(e) =>
+                    setFormData({ ...formData, current_stock: parseInt(e.target.value) })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_min_stock">Qtd. Mínima</Label>
+                <Input
+                  id="edit_min_stock"
+                  type="number"
+                  value={formData.minimum_stock}
+                  onChange={(e) =>
+                    setFormData({ ...formData, minimum_stock: parseInt(e.target.value) })
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit_max_stock">Qtd. Máxima</Label>
+                <Input
+                  id="edit_max_stock"
+                  type="number"
+                  value={formData.maximum_stock}
+                  onChange={(e) =>
+                    setFormData({ ...formData, maximum_stock: parseInt(e.target.value) })
+                  }
+                  required
+                />
+              </div>
+            </div>
+            <Button type="submit" className="w-full">
+              Salvar Alterações
             </Button>
           </form>
         </DialogContent>
